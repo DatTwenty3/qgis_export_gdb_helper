@@ -1,5 +1,6 @@
 import os
 from qgis.core import QgsProject, QgsVectorLayer, QgsFeatureRequest
+from qgis.gui import QgsProjectionSelectionDialog
 from qgis.PyQt.QtWidgets import QFileDialog, QMessageBox
 
 def import_and_split_cad():
@@ -10,16 +11,24 @@ def import_and_split_cad():
         print("Đã hủy chọn file.")
         return
 
+    # 2. Chọn hệ tọa độ (CRS) cho dữ liệu CAD
+    crs_dialog = QgsProjectionSelectionDialog()
+    crs_dialog.setWindowTitle("Chọn hệ tọa độ cho bản vẽ CAD")
+    if not crs_dialog.exec():
+        print("Đã hủy chọn hệ tọa độ.")
+        return
+    selected_crs = crs_dialog.crs()
+
     file_name = os.path.basename(file_path)
     file_base_name = os.path.splitext(file_name)[0]
     
-    print(f"Đang xử lý file: {file_name}...")
+    print(f"Đang xử lý file: {file_name} với hệ tọa độ {selected_crs.authid()}...")
 
     # Tạo Group cha mang tên file CAD
     root = QgsProject.instance().layerTreeRoot()
     cad_group = root.addGroup(f"CAD_{file_base_name}")
 
-    # 2. Cấu hình kiểu hình học: {Loại: (Hậu tố, Tên Group con)}
+    # 3. Cấu hình kiểu hình học: {Loại: (Hậu tố, Tên Group con)}
     geometry_mapping = {
         'Point': ('_P', 'Điểm (Point)'),       
         'LineString': ('_L', 'Đường (Line)'),  
@@ -30,7 +39,7 @@ def import_and_split_cad():
     # Dictionary để lưu trữ các group con (Giúp code biết group nào đã tạo rồi để không tạo trùng)
     subgroups = {}
 
-    # 3. Quét và tách lớp
+    # 4. Quét và tách lớp
     for geom_type, (suffix, group_name) in geometry_mapping.items():
         uri = f"{file_path}|layername=entities|geometrytype={geom_type}"
         temp_layer = QgsVectorLayer(uri, "temp", "ogr")
@@ -65,6 +74,7 @@ def import_and_split_cad():
                 # Clone layer "chỉ đọc" thành layer nháp trên RAM (Memory layer)
                 editable_layer = new_layer.materialize(QgsFeatureRequest())
                 editable_layer.setName(layer_name)
+                editable_layer.setCrs(selected_crs)
                 
                 # Đưa layer đã bẻ khóa vào dự án thay vì layer gốc
                 QgsProject.instance().addMapLayer(editable_layer, False) 
