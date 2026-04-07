@@ -1,6 +1,6 @@
 import os
 from qgis.core import QgsProject, QgsVectorFileWriter, QgsMapLayerType, QgsLayerTreeGroup, QgsLayerTreeLayer
-from qgis.PyQt.QtWidgets import QFileDialog
+from qgis.PyQt.QtWidgets import QFileDialog, QMessageBox
 
 # 1. GỌI HỘP THOẠI CHỌN NƠI LƯU FILE
 # Các tham số: Nơi gọi (None), Tiêu đề, Thư mục mặc định, Bộ lọc định dạng file
@@ -18,6 +18,8 @@ else:
     
     # Biến toàn cục kiểm tra file đã tồn tại chưa
     gdb_exists = os.path.exists(gdb_path)
+
+    exported_layers = [0]
 
     def process_group(group):
         global gdb_exists
@@ -65,7 +67,8 @@ else:
                     
                     if error[0] == QgsVectorFileWriter.NoError:
                         print(f"  + Đã xuất: {layer.name()} -> Nhóm GDB: {group_name}")
-                        gdb_exists = True 
+                        gdb_exists = True
+                        exported_layers[0] += 1
                     else:
                         print(f"  - Lỗi khi xuất {layer.name()}: {error}")
 
@@ -77,3 +80,9 @@ else:
             process_group(child)
 
     print("\n--- HOÀN TẤT ---")
+    if exported_layers[0] > 0:
+        QMessageBox.information(
+            None,
+            "Hoàn tất",
+            "Quá trình đã hoàn tất.\nPhần mềm được phát triển bởi LEDAT.\nCảm ơn đã sử dụng."
+        )

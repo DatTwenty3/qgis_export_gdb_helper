@@ -2,7 +2,7 @@ from qgis.core import QgsProject, QgsField, QgsMapLayerType
 from qgis.PyQt.QtCore import QVariant, Qt
 from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                                  QLineEdit, QListWidget, QListWidgetItem, 
-                                 QPushButton, QDialogButtonBox, QScrollArea, QWidget)
+                                 QPushButton, QDialogButtonBox, QScrollArea, QWidget, QMessageBox, QCheckBox)
 
 # --- XỬ LÝ PHIÊN BẢN PYQT ---
 try:
@@ -42,6 +42,10 @@ class LayerSelectionDialog(QDialog):
         scroll_layout.addWidget(QLabel("Mã hồ sơ quy hoạch (maHoSoQH) - VD: 84QHC1000001:"))
         self.input_ma_hs = QLineEdit("84QHC1000001", self)
         scroll_layout.addWidget(self.input_ma_hs)
+
+        scroll_layout.addWidget(QLabel("Mã đối tượng (maDoiTuong) - do người dùng nhập:"))
+        self.input_ma_dt = QLineEdit(self)
+        scroll_layout.addWidget(self.input_ma_dt)
         
         scroll_layout.addWidget(QLabel("Tên đối tượng (tenDoiTuong) - Bỏ trống nếu nhập sau:"))
         self.input_ten_dt = QLineEdit(self)
@@ -54,6 +58,11 @@ class LayerSelectionDialog(QDialog):
         scroll_layout.addWidget(QLabel("Ghi chú (ghiChu) - Bỏ trống nếu nhập sau:"))
         self.input_ghi_chu = QLineEdit(self)
         scroll_layout.addWidget(self.input_ghi_chu)
+
+        # Tùy chọn xử lý thuộc tính cũ
+        self.chk_delete_old_fields = QCheckBox("Xóa toàn bộ thuộc tính cũ của layer trước khi thêm thuộc tính mới", self)
+        self.chk_delete_old_fields.setChecked(False)
+        scroll_layout.addWidget(self.chk_delete_old_fields)
 
         # 2. Khu vực danh sách Layer
         scroll_layout.addWidget(QLabel("Chọn các layer cần thêm trường dữ liệu:"))
@@ -135,9 +144,11 @@ def add_fields_and_data():
         # Lấy dữ liệu từ giao diện
         ma_tt_qh = dialog.input_ma_tt.text().strip()
         ma_hs_qh = dialog.input_ma_hs.text().strip()
+        ma_dt_goc = dialog.input_ma_dt.text().strip()
         ten_dt = dialog.input_ten_dt.text().strip()
         phan_loai = dialog.input_phan_loai.text().strip()
         ghi_chu = dialog.input_ghi_chu.text().strip()
+        delete_old_fields = dialog.chk_delete_old_fields.isChecked()
         
         selected_layers = dialog.get_selected_layers()
         if not selected_layers:
@@ -161,14 +172,22 @@ def add_fields_and_data():
             layer.startEditing()
             pr = layer.dataProvider()
 
-            # 1. Thêm trường nếu chưa có
+            # 1. Tùy chọn xóa toàn bộ trường cũ
+            if delete_old_fields:
+                old_field_count = len(layer.fields())
+                if old_field_count > 0:
+                    pr.deleteAttributes(list(range(old_field_count)))
+                    layer.updateFields()
+                    print(f"  + Đã xóa {old_field_count} thuộc tính cũ")
+
+            # 2. Thêm trường nếu chưa có
             existing_fields = layer.fields().names()
             new_fields = [f for f in fields_to_add if f.name() not in existing_fields and f.name()[:10] not in existing_fields]
             if new_fields:
                 pr.addAttributes(new_fields)
                 layer.updateFields()
 
-            # 2. Lấy Index chính xác của cột (Kể cả khi bị cắt 10 ký tự)
+            # 3. Lấy Index chính xác của cột (Kể cả khi bị cắt 10 ký tự)
             idx_maThongTinQH = get_field_idx(layer, "maThongTinQH")
             idx_maHoSoQH = get_field_idx(layer, "maHoSoQH")
             idx_maDoiTuong = get_field_idx(layer, "maDoiTuong")
@@ -176,11 +195,11 @@ def add_fields_and_data():
             idx_phanLoai = get_field_idx(layer, "phanLoai")
             idx_ghiChu = get_field_idx(layer, "ghiChu")
 
-            # 3. Cập nhật dữ liệu
+            # 4. Cập nhật dữ liệu
             update_dict = {}
             for feat in layer.getFeatures():
                 obj_id = feat.id()
-                ma_doi_tuong = f"{ma_hs_qh}-{layer.name()}-{obj_id}"
+                ma_doi_tuong = ma_dt_goc
                 
                 # Chỉ cập nhật các cột tìm thấy
                 attr_map = {}
@@ -198,6 +217,11 @@ def add_fields_and_data():
             print(f"  + Hoàn tất: {layer.name()}")
 
         print("\n--- ĐÃ CHẠY XONG TOÀN BỘ YÊU CẦU ---")
+        QMessageBox.information(
+            None,
+            "Hoàn tất",
+            "Quá trình đã hoàn tất.\nPhần mềm được phát triển bởi LEDAT.\nCảm ơn đã sử dụng."
+        )
     else:
         print("Đã hủy thao tác.")
 
