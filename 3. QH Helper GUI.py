@@ -33,6 +33,78 @@ from qgis.PyQt.QtWidgets import (
     QWidget,
 )
 
+# --- FIX TRUNCATION TEN LAYER DXF (OGR "Layer" HAY BI CAT 10 KY TU) ---
+def _extract_dxf_layer_names(file_path: str):
+    """
+    Trả về list tên layer đầy đủ trong bảng LAYER của DXF (ASCII).
+    """
+    try:
+        with open(file_path, "rb") as f:
+            head = f.read(32)
+        if b"AutoCAD Binary DXF" in head:
+            return {}
+
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            lines = [ln.rstrip("\r\n") for ln in f]
+
+        in_layer_table = False
+        pending_layer_entity = False
+        full_names = []
+        i = 0
+        n = len(lines)
+        while i + 1 < n:
+            code = lines[i].strip()
+            value = lines[i + 1].strip()
+
+            if code == "0" and value == "TABLE":
+                if i + 3 < n and lines[i + 2].strip() == "2" and lines[i + 3].strip().upper() == "LAYER":
+                    in_layer_table = True
+                    i += 4
+                    continue
+
+            if in_layer_table and code == "0" and value == "ENDTAB":
+                in_layer_table = False
+                pending_layer_entity = False
+                i += 2
+                continue
+
+            if in_layer_table and code == "0" and value == "LAYER":
+                pending_layer_entity = True
+                i += 2
+                continue
+
+            if in_layer_table and pending_layer_entity and code == "2":
+                if value:
+                    full_names.append(value)
+                pending_layer_entity = False
+                i += 2
+                continue
+
+            i += 2
+
+        return full_names
+    except Exception:
+        return []
+
+
+def _restore_layer_name(cad_layer_str: str, dxf_full_layer_names):
+    if not dxf_full_layer_names:
+        return cad_layer_str
+
+    if cad_layer_str in dxf_full_layer_names:
+        return cad_layer_str
+
+    matches = [n for n in dxf_full_layer_names if n.startswith(cad_layer_str)]
+    if len(matches) == 1:
+        return matches[0]
+
+    key10 = cad_layer_str[:10]
+    matches10 = [n for n in dxf_full_layer_names if n.startswith(key10)]
+    if len(matches10) == 1:
+        return matches10[0]
+
+    return cad_layer_str
+
 # --- TUONG THICH ENUM GIUA CAC PHIEN BAN PYQT/QGIS ---
 try:
     ORIENTATION_VERTICAL = Qt.Orientation.Vertical
@@ -174,19 +246,6 @@ class QHHelperWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
 
-        status_box = QGroupBox("Tiến độ xử lý")
-        status_layout = QVBoxLayout(status_box)
-        self.lbl_step1 = QLabel("Bước 1 (Nhập bản vẽ): CHƯA CHẠY")
-        self.lbl_step2 = QLabel("Bước 2 (Tạo thuộc tính): CHƯA CHẠY")
-        self.lbl_step3 = QLabel("Bước 3 (Tạo GDB): CHƯA CHẠY")
-        status_layout.addWidget(self.lbl_step1)
-        status_layout.addWidget(self.lbl_step2)
-        status_layout.addWidget(self.lbl_step3)
-        self._set_step_status(1, "pending")
-        self._set_step_status(2, "pending")
-        self._set_step_status(3, "pending")
-        layout.addWidget(status_box)
-
         # Bước 1
         box = QGroupBox("Bước 1 - Nhập CAD và tách lớp theo hình học")
         box_layout = QVBoxLayout(box)
@@ -271,30 +330,6 @@ class QHHelperWindow(QMainWindow):
         layout.addWidget(QLabel(text))
         layout.addWidget(widget)
 
-    def _set_step_status(self, step, status, detail=""):
-        labels = {
-            1: self.lbl_step1,
-            2: self.lbl_step2,
-            3: self.lbl_step3,
-        }
-        titles = {
-            1: "Bước 1 (Nhập bản vẽ)",
-            2: "Bước 2 (Tạo thuộc tính)",
-            3: "Bước 3 (Tạo GDB)",
-        }
-        status_map = {
-            "pending": ("CHƯA CHẠY", "#6b7280"),
-            "running": ("ĐANG CHẠY", "#1d4ed8"),
-            "done": ("HOÀN TẤT", "#047857"),
-            "failed": ("THẤT BẠI", "#b91c1c"),
-        }
-        text, color = status_map.get(status, status_map["pending"])
-        msg = f"{titles[step]}: {text}"
-        if detail:
-            msg += f" - {detail}"
-        labels[step].setText(msg)
-        labels[step].setStyleSheet(f"font-weight: 700; color: {color};")
-
     def log(self, message):
         text = str(message)
         lower_text = text.lower()
@@ -375,7 +410,6 @@ class QHHelperWindow(QMainWindow):
 
     # --- CHUC NANG 1: NHAP BAN VE ---
     def import_and_split_cad(self):
-        self._set_step_status(1, "running")
         file_path = self.input_cad_path.text().strip()
         if not file_path:
             file_path, _ = QFileDialog.getOpenFileName(
@@ -385,7 +419,6 @@ class QHHelperWindow(QMainWindow):
                 "DXF Files (*.dxf);;CAD Files (*.dxf *.dwg)",
             )
             if not file_path:
-                self._set_step_status(1, "pending")
                 self.log("Đã hủy chọn file CAD.")
                 return
             self.input_cad_path.setText(file_path)
@@ -393,7 +426,6 @@ class QHHelperWindow(QMainWindow):
         crs_dialog = QgsProjectionSelectionDialog()
         crs_dialog.setWindowTitle("Chọn hệ tọa độ cho bản vẽ CAD")
         if not crs_dialog.exec():
-            self._set_step_status(1, "pending")
             self.log("Đã hủy chọn hệ tọa độ.")
             return
         selected_crs = crs_dialog.crs()
@@ -402,13 +434,15 @@ class QHHelperWindow(QMainWindow):
         file_base_name = os.path.splitext(file_name)[0]
         self.log(f"Đang xử lý file: {file_name} với hệ tọa độ {selected_crs.authid()}...")
 
+        dxf_full_layer_names = _extract_dxf_layer_names(file_path) if file_path.lower().endswith(".dxf") else []
+
         root = QgsProject.instance().layerTreeRoot()
         cad_group = root.addGroup(f"CAD_{file_base_name}")
 
         geometry_mapping = {
-            "Point": ("_P", "Điểm (Point)"),
-            "LineString": ("_L", "Đường (Line)"),
-            "Polygon": ("_A", "Vùng (Polygon)"),
+            "Point": ("", "Điểm (Point)"),
+            "LineString": ("", "Đường (Line)"),
+            "Polygon": ("", "Vùng (Polygon)"),
         }
 
         layer_count = 0
@@ -431,10 +465,13 @@ class QHHelperWindow(QMainWindow):
                 if not cad_layer:
                     continue
 
-                clean_name = str(cad_layer).strip().replace(" ", "_").replace("-", "_")
-                layer_name = f"{clean_name}{suffix}"
+                cad_layer_str = str(cad_layer)
+                restored_layer = _restore_layer_name(cad_layer_str, dxf_full_layer_names)
+
+                clean_name = restored_layer.strip().replace(" ", "_").replace("-", "_")
+                layer_name = clean_name
                 new_layer = QgsVectorLayer(uri, layer_name, "ogr")
-                safe_cad_layer = str(cad_layer).replace("'", "''")
+                safe_cad_layer = cad_layer_str.replace("'", "''")
                 new_layer.setSubsetString(f"\"Layer\" = '{safe_cad_layer}'")
 
                 if new_layer.isValid() and new_layer.featureCount() > 0:
@@ -451,20 +488,16 @@ class QHHelperWindow(QMainWindow):
                     self.log(f"  + Đã tách và mở khóa: {layer_name} -> Nhóm: {group_name}")
 
         if layer_count > 0:
-            self._set_step_status(1, "done", f"{layer_count} layer")
             self.log(f"HOÀN TẤT! Đã import và phân loại {layer_count} layer.")
             self.refresh_vector_layers()
             self.show_done_message()
         else:
-            self._set_step_status(1, "failed", "Không có dữ liệu hợp lệ")
             self.log("KHÔNG THÀNH CÔNG! Không tìm thấy dữ liệu hợp lệ (thử Save As DWG -> DXF).")
 
     # --- CHUC NANG 2: TAO THUOC TINH ---
     def add_fields_and_data(self):
-        self._set_step_status(2, "running")
         selected_layers = self._selected_vector_layers()
         if not selected_layers:
-            self._set_step_status(2, "failed", "Chưa chọn layer")
             self.log("Bạn chưa chọn layer nào để xử lý.")
             return
 
@@ -538,12 +571,10 @@ class QHHelperWindow(QMainWindow):
             self.log(f"  + Hoàn tất: {layer.name()}")
 
         self.log("--- ĐÃ CHẠY XONG TOÀN BỘ YÊU CẦU ---")
-        self._set_step_status(2, "done", f"{len(selected_layers)} layer")
         self.show_done_message()
 
     # --- CHUC NANG 3: TAO GDB ---
     def export_to_gdb(self):
-        self._set_step_status(3, "running")
         gdb_path, _ = QFileDialog.getSaveFileName(
             self,
             "Chọn nơi lưu và đặt tên file Geodatabase",
@@ -552,7 +583,6 @@ class QHHelperWindow(QMainWindow):
         )
 
         if not gdb_path:
-            self._set_step_status(3, "pending")
             self.log("Đã hủy thao tác lưu file.")
             return
 
@@ -606,11 +636,9 @@ class QHHelperWindow(QMainWindow):
                 process_group(child)
 
         if exported_layers > 0:
-            self._set_step_status(3, "done", f"{exported_layers} layer")
             self.log(f"--- HOÀN TẤT --- Đã xuất {exported_layers} layer.")
             self.show_done_message()
         else:
-            self._set_step_status(3, "failed", "Không xuất được layer")
             self.log("--- HOÀN TẤT --- Không có layer nào được xuất.")
 
 

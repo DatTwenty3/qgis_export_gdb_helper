@@ -3,6 +3,86 @@ from qgis.core import QgsProject, QgsVectorLayer, QgsFeatureRequest
 from qgis.gui import QgsProjectionSelectionDialog
 from qgis.PyQt.QtWidgets import QFileDialog, QMessageBox
 
+def _extract_dxf_layer_names(file_path: str):
+    """
+    Trả về list tên layer đầy đủ trong bảng LAYER của DXF (ASCII).
+    DXF khi đọc qua OGR/QGIS đôi lúc bị cắt giá trị thuộc tính "Layer" (thường gặp: 10 ký tự hoặc rớt ký tự cuối),
+    nên ta cần nguồn tên gốc để khôi phục.
+    """
+    try:
+        with open(file_path, "rb") as f:
+            head = f.read(32)
+        # DXF nhị phân: khó parse nhanh bằng text -> bỏ qua
+        if b"AutoCAD Binary DXF" in head:
+            return {}
+
+        # DXF ASCII: parse bảng LAYER theo cặp (group code, value)
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            lines = [ln.rstrip("\r\n") for ln in f]
+
+        in_layer_table = False
+        pending_layer_entity = False
+        full_names = []
+        i = 0
+        n = len(lines)
+        while i + 1 < n:
+            code = lines[i].strip()
+            value = lines[i + 1].strip()
+
+            if code == "0" and value == "TABLE":
+                # nhìn trước để biết table gì
+                if i + 3 < n and lines[i + 2].strip() == "2" and lines[i + 3].strip().upper() == "LAYER":
+                    in_layer_table = True
+                    i += 4
+                    continue
+
+            if in_layer_table and code == "0" and value == "ENDTAB":
+                in_layer_table = False
+                pending_layer_entity = False
+                i += 2
+                continue
+
+            if in_layer_table and code == "0" and value == "LAYER":
+                pending_layer_entity = True
+                i += 2
+                continue
+
+            # Trong entity LAYER: group code 2 là tên layer
+            if in_layer_table and pending_layer_entity and code == "2":
+                if value:
+                    full_names.append(value)
+                pending_layer_entity = False
+                i += 2
+                continue
+
+            i += 2
+
+        return full_names
+    except Exception:
+        return []
+
+
+def _restore_layer_name(cad_layer_str: str, dxf_full_layer_names):
+    if not dxf_full_layer_names:
+        return cad_layer_str
+
+    # 1) Nếu trùng đúng với tên trong DXF thì dùng luôn
+    if cad_layer_str in dxf_full_layer_names:
+        return cad_layer_str
+
+    # 2) Nếu cad_layer_str là tiền tố của đúng 1 tên đầy đủ -> khôi phục
+    matches = [n for n in dxf_full_layer_names if n.startswith(cad_layer_str)]
+    if len(matches) == 1:
+        return matches[0]
+
+    # 3) Fallback: theo prefix 10 ký tự (chỉ khi duy nhất)
+    key10 = cad_layer_str[:10]
+    matches10 = [n for n in dxf_full_layer_names if n.startswith(key10)]
+    if len(matches10) == 1:
+        return matches10[0]
+
+    return cad_layer_str
+
 def import_and_split_cad():
     # 1. Mở hộp thoại chọn file CAD
     file_path, _ = QFileDialog.getOpenFileName(None, "Chọn file CAD (Nên dùng DXF)", "", "DXF Files (*.dxf);;CAD Files (*.dxf *.dwg)")
@@ -24,15 +104,17 @@ def import_and_split_cad():
     
     print(f"Đang xử lý file: {file_name} với hệ tọa độ {selected_crs.authid()}...")
 
+    dxf_full_layer_names = _extract_dxf_layer_names(file_path) if file_path.lower().endswith(".dxf") else []
+
     # Tạo Group cha mang tên file CAD
     root = QgsProject.instance().layerTreeRoot()
     cad_group = root.addGroup(f"CAD_{file_base_name}")
 
     # 3. Cấu hình kiểu hình học: {Loại: (Hậu tố, Tên Group con)}
     geometry_mapping = {
-        'Point': ('_P', 'Điểm (Point)'),       
-        'LineString': ('_L', 'Đường (Line)'),  
-        'Polygon': ('_A', 'Vùng (Polygon)')      
+        'Point': ('', 'Điểm (Point)'),       
+        'LineString': ('', 'Đường (Line)'),  
+        'Polygon': ('', 'Vùng (Polygon)')      
     }
 
     layer_count = 0
@@ -57,14 +139,17 @@ def import_and_split_cad():
             if not cad_layer: 
                 continue
                 
+            cad_layer_str = str(cad_layer)
+            restored_layer = _restore_layer_name(cad_layer_str, dxf_full_layer_names)
+
             # Chuẩn hóa tên (bỏ khoảng trắng, dấu gạch ngang)
-            clean_cad_layer = str(cad_layer).strip().replace(" ", "_").replace("-", "_")
-            layer_name = f"{clean_cad_layer}{suffix}"
+            clean_cad_layer = restored_layer.strip().replace(" ", "_").replace("-", "_")
+            layer_name = clean_cad_layer
             
             new_layer = QgsVectorLayer(uri, layer_name, "ogr")
             
             # Lọc dữ liệu theo tên lớp bên CAD
-            safe_cad_layer = str(cad_layer).replace("'", "''") 
+            safe_cad_layer = cad_layer_str.replace("'", "''")
             new_layer.setSubsetString(f"\"Layer\" = '{safe_cad_layer}'")
             
             # Nếu layer lọc ra có dữ liệu thực tế
