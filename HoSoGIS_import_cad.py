@@ -116,6 +116,7 @@ def import_and_split_cad():
         'LineString': ('', 'Đường (Line)'),  
         'Polygon': ('', 'Vùng (Polygon)')      
     }
+    _cad_geom_suffix = {'Point': '_P', 'LineString': '_L', 'Polygon': '_A'}
 
     layer_count = 0
     # Dictionary để lưu trữ các group con (Giúp code biết group nào đã tạo rồi để không tạo trùng)
@@ -144,8 +145,8 @@ def import_and_split_cad():
 
             # Chuẩn hóa tên (bỏ khoảng trắng, dấu gạch ngang)
             clean_cad_layer = restored_layer.strip().replace(" ", "_").replace("-", "_")
-            layer_name = clean_cad_layer
-            
+            layer_name = clean_cad_layer + _cad_geom_suffix.get(geom_type, '')
+
             new_layer = QgsVectorLayer(uri, layer_name, "ogr")
             
             # Lọc dữ liệu theo tên lớp bên CAD
