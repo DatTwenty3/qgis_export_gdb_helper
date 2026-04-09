@@ -12,6 +12,7 @@ from qgis.core import (
     QgsProject,
     QgsVectorFileWriter,
     QgsVectorLayer,
+    QgsWkbTypes,
 )
 from qgis.gui import QgsProjectionSelectionDialog
 from qgis.PyQt.QtCore import QDate, QDateTime, QVariant, Qt
@@ -432,9 +433,17 @@ class HoSoGISWindow(QMainWindow):
             border-radius: 8px;
         }
         QLabel#title {
-            font-size: 22px;
-            font-weight: 700;
+            font-size: 26px;
+            font-weight: 800;
             color: #0f172a;
+            letter-spacing: 0.02em;
+        }
+        QLabel#titleKicker {
+            color: #2563eb;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
         }
         QLabel#subtitle { color: #64748b; font-size: 12px; }
         QFrame#footerBar {
@@ -593,11 +602,14 @@ class HoSoGISWindow(QMainWindow):
         header.setObjectName("headerCard")
         header_layout = QVBoxLayout(header)
         header_layout.setContentsMargins(14, 12, 14, 12)
-        header_layout.setSpacing(2)
-        lbl_title = QLabel("HoSoGIS")
+        header_layout.setSpacing(1)
+        lbl_kicker = QLabel("PLANNING DATA WORKSPACE")
+        lbl_kicker.setObjectName("titleKicker")
+        lbl_title = QLabel('HoSo<span style="color:#2563eb;">GIS</span>')
         lbl_title.setObjectName("title")
         lbl_sub = QLabel("Quản lý dữ liệu quy hoạch: nhập CAD, cập nhật thuộc tính, xuất GDB/GPKG")
         lbl_sub.setObjectName("subtitle")
+        header_layout.addWidget(lbl_kicker)
         header_layout.addWidget(lbl_title)
         header_layout.addWidget(lbl_sub)
         root_layout.addWidget(header)
@@ -771,12 +783,29 @@ class HoSoGISWindow(QMainWindow):
         tab_layout.setContentsMargins(4, 4, 4, 4)
         tab_layout.setSpacing(8)
 
-        hint = QLabel("Xuất layer theo cấu trúc nhóm trong Layer Tree (bỏ qua 'base map').")
+        hint = QLabel("Xuất/nhập dữ liệu GDB, GPKG theo cấu trúc nhóm nghiệp vụ.")
         hint.setObjectName("sectionHint")
         hint.setWordWrap(True)
         tab_layout.addWidget(hint)
 
-        box = QGroupBox("Định dạng xuất")
+        import_box = QGroupBox("Nhập dữ liệu GDB")
+        import_layout = QVBoxLayout(import_box)
+        import_row = QHBoxLayout()
+        self.input_gdb_path = QLineEdit()
+        self.input_gdb_path.setPlaceholderText("Chọn thư mục File Geodatabase (*.gdb)")
+        btn_browse_gdb = QPushButton("Chọn GDB")
+        btn_browse_gdb.setObjectName("ghost")
+        btn_browse_gdb.clicked.connect(self.choose_gdb_folder)
+        import_row.addWidget(self.input_gdb_path, 1)
+        import_row.addWidget(btn_browse_gdb)
+        import_layout.addLayout(import_row)
+
+        btn_import_gdb = QPushButton("Chạy nhập GDB")
+        btn_import_gdb.clicked.connect(self.import_from_gdb)
+        import_layout.addWidget(btn_import_gdb)
+        tab_layout.addWidget(import_box)
+
+        box = QGroupBox("Xuất dữ liệu")
         box_layout = QVBoxLayout(box)
         btn_row_export = QHBoxLayout()
         btn_run_gdb = QPushButton("Xuất GDB")
@@ -789,6 +818,15 @@ class HoSoGISWindow(QMainWindow):
         tab_layout.addWidget(box)
         tab_layout.addStretch(1)
         return tab
+
+    def choose_gdb_folder(self):
+        gdb_path = QFileDialog.getExistingDirectory(
+            self,
+            "Chọn thư mục File Geodatabase (.gdb)",
+            "",
+        )
+        if gdb_path:
+            self.input_gdb_path.setText(gdb_path)
 
     def _add_labeled_input(self, layout, text, widget):
         if hasattr(layout, "addRow"):
@@ -1289,6 +1327,93 @@ class HoSoGISWindow(QMainWindow):
             self.show_done_message()
         else:
             self.log("--- HOÀN TẤT --- Không có layer nào được xuất ra GPKG.")
+
+    def _list_gdb_sublayers(self, gdb_path):
+        probe = QgsVectorLayer(gdb_path, "__gdb_probe__", "ogr")
+        if not probe.isValid() or not probe.dataProvider():
+            return []
+        sublayers = []
+        for raw in probe.dataProvider().subLayers():
+            text = str(raw)
+            # OGR thường trả dạng: "<idx>!!::!!<layer_name>!!::!!<feature_count>..."
+            parts = text.split("!!::!!")
+            name = parts[1].strip() if len(parts) > 1 else text.strip()
+            if name and name not in sublayers:
+                sublayers.append(name)
+        return sublayers
+
+    def _geometry_group_name(self, geometry_type):
+        if geometry_type == QgsWkbTypes.PointGeometry:
+            return "Điểm (Point)"
+        if geometry_type == QgsWkbTypes.LineGeometry:
+            return "Đường (Line)"
+        if geometry_type == QgsWkbTypes.PolygonGeometry:
+            return "Vùng (Polygon)"
+        return "Khác (Other)"
+
+    def _unique_group_name(self, root, base_name):
+        name = base_name
+        idx = 2
+        while root.findGroup(name) is not None:
+            name = f"{base_name}_{idx}"
+            idx += 1
+        return name
+
+    def import_from_gdb(self):
+        gdb_path = self.input_gdb_path.text().strip() if hasattr(self, "input_gdb_path") else ""
+        if not gdb_path:
+            gdb_path = QFileDialog.getExistingDirectory(
+                self,
+                "Chọn thư mục File Geodatabase (.gdb)",
+                "",
+            )
+        if not gdb_path:
+            self.log("Đã hủy chọn thư mục GDB.")
+            return
+        if hasattr(self, "input_gdb_path"):
+            self.input_gdb_path.setText(gdb_path)
+        if not gdb_path.lower().endswith(".gdb"):
+            self.log("Đường dẫn đã chọn không phải thư mục .gdb.")
+            return
+
+        sublayers = self._list_gdb_sublayers(gdb_path)
+        if not sublayers:
+            self.log("Không đọc được layer nào từ GDB (hoặc GDB rỗng).")
+            return
+
+        root = QgsProject.instance().layerTreeRoot()
+        gdb_name = os.path.splitext(os.path.basename(gdb_path))[0]
+        group_name = self._unique_group_name(root, f"GDB_{self._sanitize_name(gdb_name)}")
+        main_group = root.addGroup(group_name)
+        subgroups = {}
+        loaded = 0
+
+        self.log(f"Bắt đầu nhập GDB: {gdb_path}")
+        for sublayer_name in sublayers:
+            uri = f"{gdb_path}|layername={sublayer_name}"
+            layer = QgsVectorLayer(uri, sublayer_name, "ogr")
+            if not layer.isValid():
+                self.log(f"  - Bỏ qua (không hợp lệ): {sublayer_name}")
+                continue
+            if layer.type() != QgsMapLayerType.VectorLayer:
+                self.log(f"  - Bỏ qua (không phải vector): {sublayer_name}")
+                continue
+
+            geom_group_name = self._geometry_group_name(layer.geometryType())
+            if geom_group_name not in subgroups:
+                subgroups[geom_group_name] = main_group.addGroup(geom_group_name)
+
+            QgsProject.instance().addMapLayer(layer, False)
+            subgroups[geom_group_name].addLayer(layer)
+            loaded += 1
+            self.log(f"  + Đã nhập: {sublayer_name} -> Nhóm: {geom_group_name}")
+
+        if loaded > 0:
+            self.log(f"HOÀN TẤT! Đã nhập {loaded} layer từ GDB và phân nhóm theo hình học.")
+            self.refresh_vector_layers()
+            self.show_done_message()
+        else:
+            self.log("KHÔNG THÀNH CÔNG! Không có layer hợp lệ nào được nhập từ GDB.")
 
 
 def show_hosogis_gui():
