@@ -54,6 +54,96 @@ except ImportError:
 
 _FID_HEADER = "qgis_fid"
 
+_QUICK_LAYER_NAME_OPTIONS = [
+    "BanKinhBoViaBanKinhTimDuong_P",
+    "BoViaDaiPhanCach_L",
+    "CaoDoCongTNM_P",
+    "CaoDoCongThoatTNT_P",
+    "CaoDoNen_P",
+    "CayXanh_P",
+    "ChiGioiDuongDo_L",
+    "ChiGioiXayDung_L",
+    "ChucNangCongTrinh_P",
+    "ChucNangSuDungDat_A",
+    "CongTrinhCBKT_A",
+    "CongTrinhCBKT_L",
+    "CongTrinhCBKT_P",
+    "CongTrinhCapDien_A",
+    "CongTrinhCapDien_P",
+    "CongTrinhChieuSang_P",
+    "CongTrinhGiaoThong_A",
+    "CongTrinhGiaoThong_L",
+    "CongTrinhGiaoThong_P",
+    "CongTrinhNangLuong_A",
+    "CongTrinhNangLuong_P",
+    "CongTrinhNgam_A",
+    "CongTrinhNgam_L",
+    "CongTrinhNgam_P",
+    "CongTrinhTNTvaVSMT_A",
+    "CongTrinhTNTvaVSMT_L",
+    "CongTrinhTNTvaVSMT_P",
+    "CongTrinhThongTin_A",
+    "CongTrinhThongTin_P",
+    "CongTrinh_A",
+    "CongTrinh_L",
+    "CongtrinhCapNuocPCCC_A",
+    "CongtrinhCapNuocPCCC_P",
+    "DanhGiaMoiTruong_A",
+    "DanhGiaMoiTruong_L",
+    "DanhGiaMoiTruong_P",
+    "DiemDauNoi_P",
+    "DiemNhanChinh_P",
+    "DiemQuanTrac_P",
+    "DiemToaDoTimDuongChuyenHuongTimDuong_P",
+    "DongMucThietKe_L",
+    "DuAnLienQuan_A",
+    "GiaiPhapBaoVeMoiTruong_A",
+    "GiaiPhapBaoVeMoiTruong_L",
+    "GiaiPhapBaoVeMoiTruong_P",
+    "HanhLangAnToan_L",
+    "HuongDi_L",
+    "HuongThoatNuocMua_L",
+    "HuongThoatNuocThai_L",
+    "KhongGianKTCQ_A",
+    "KhongGianKTCQ_L",
+    "KhuVucPhoiCanh_A",
+    "MangLuoiCapNuoc_L",
+    "MangLuoiCapThongTin_L",
+    "MangLuoiChieuSang_L",
+    "MangLuoiGiaoThongDuongBo_A",
+    "MangLuoiGiaoThongDuongBo_L",
+    "MangLuoiGiaoThongDuongKhong_L",
+    "MangLuoiGiaoThongDuongSat_L",
+    "MangLuoiGiaoThongDuongThuy_L",
+    "MangLuoiNangLuong_L",
+    "MangLuoiPhanPhoiDien_L",
+    "MangLuoiThoatNuocMua_L",
+    "MangLuoiThoatNuocThai_L",
+    "MangLuoiTuyenBus_L",
+    "MatCatNgang_L",
+    "MatNuoc_A",
+    "MocGioiQuyHoach_A",
+    "MocGioiQuyHoach_L",
+    "MocGioiQuyHoach_P",
+    "NutTinhToanTNT_P",
+    "PhanKhuQuyHoach_A",
+    "PhanLuuThoatNuocMua_L",
+    "PhanLuuThoatNuocThai_L",
+    "PhanOQuyHoach_A",
+    "PhanVungCapDien_A",
+    "PhanVungCapNuoc_A",
+    "PhanVungDanhGia_A",
+    "PhanVungLuuVuc_A",
+    "PhanVungPhucVu_A",
+    "PhanVungSDDkhac_A",
+    "PhanVungSanNen_A",
+    "RanhGioiHanhChinh_L",
+    "RanhGioiQuyHoach_A",
+    "TenDonViHanhChinh_P",
+    "ThongTinSanNen_P",
+    "TuyenTKDT_L",
+]
+
 
 def _openpyxl_available():
     return Workbook is not None and load_workbook is not None
@@ -645,10 +735,11 @@ class HoSoGISWindow(QMainWindow):
 
         tabs = QTabWidget()
         tabs.setObjectName("moduleTabs")
-        tabs.addTab(self._build_tab_import_cad(), "1. Nhập CAD")
-        tabs.addTab(self._build_tab_attributes(), "2. Thuộc tính")
-        tabs.addTab(self._build_tab_export(), "3. Xuất dữ liệu")
-        tabs.addTab(self._build_tab_logs(), "4. Nhật ký xử lý")
+        tabs.addTab(self._build_tab_import_cad(), "Nhập CAD")
+        tabs.addTab(self._build_tab_attributes(), "Thuộc tính")
+        tabs.addTab(self._build_tab_quick_rename(), "Đổi tên layer nhanh")
+        tabs.addTab(self._build_tab_export(), "Xuất dữ liệu")
+        tabs.addTab(self._build_tab_logs(), "Nhật ký xử lý")
         layout.addWidget(tabs, 1)
         return panel
 
@@ -777,6 +868,52 @@ class HoSoGISWindow(QMainWindow):
         tab_layout.addWidget(btn_run)
         return tab
 
+    def _build_tab_quick_rename(self):
+        tab = QWidget()
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(4, 4, 4, 4)
+        tab_layout.setSpacing(8)
+
+        hint = QLabel(
+            "Đổi tên nhanh layer theo danh mục chuẩn. "
+            "Chọn tên cũ ở bên trái, rồi chọn tên mới phù hợp (_P/_L/_A) ở bên phải."
+        )
+        hint.setObjectName("sectionHint")
+        hint.setWordWrap(True)
+        tab_layout.addWidget(hint)
+
+        box = QGroupBox("Đổi tên nhanh")
+        box_layout = QVBoxLayout(box)
+
+        split = QHBoxLayout()
+        old_box = QGroupBox("Tên cũ (layer hiện tại)")
+        old_layout = QVBoxLayout(old_box)
+        self.rename_old_list = QListWidget()
+        self.rename_old_list.currentItemChanged.connect(self.on_rename_old_layer_changed)
+        old_layout.addWidget(self.rename_old_list)
+
+        new_box = QGroupBox("Tên mới (chọn từ danh mục)")
+        new_layout = QVBoxLayout(new_box)
+        self.rename_new_list = QListWidget()
+        new_layout.addWidget(self.rename_new_list)
+
+        split.addWidget(old_box, 1)
+        split.addWidget(new_box, 1)
+        box_layout.addLayout(split)
+
+        btn_row = QHBoxLayout()
+        btn_refresh = QPushButton("Làm mới danh sách")
+        btn_refresh.setObjectName("ghost")
+        btn_apply = QPushButton("Đổi tên layer đã chọn")
+        btn_refresh.clicked.connect(self.refresh_rename_layers)
+        btn_apply.clicked.connect(self.apply_selected_rename)
+        btn_row.addWidget(btn_refresh)
+        btn_row.addWidget(btn_apply)
+        box_layout.addLayout(btn_row)
+
+        tab_layout.addWidget(box, 1)
+        return tab
+
     def _build_tab_export(self):
         tab = QWidget()
         tab_layout = QVBoxLayout(tab)
@@ -903,6 +1040,7 @@ class HoSoGISWindow(QMainWindow):
             item.setCheckState(CHK_CHECKED)
             item.setData(USER_ROLE, layer.id())
             self.list_layers.addItem(item)
+        self.refresh_rename_layers()
         self.log(f"Đã tải danh sách layer: {len(vector_layers)} layer vector.")
 
     def select_all_layers(self):
@@ -924,6 +1062,105 @@ class HoSoGISWindow(QMainWindow):
                 if layer and layer.type() == QgsMapLayerType.VectorLayer:
                     selected.append(layer)
         return selected
+
+    def _geometry_suffix_for_layer(self, layer):
+        if layer.geometryType() == QgsWkbTypes.PointGeometry:
+            return "_P"
+        if layer.geometryType() == QgsWkbTypes.LineGeometry:
+            return "_L"
+        if layer.geometryType() == QgsWkbTypes.PolygonGeometry:
+            return "_A"
+        return ""
+
+    def refresh_rename_layers(self):
+        if not hasattr(self, "rename_old_list"):
+            return
+        self.rename_old_list.clear()
+        self.rename_new_list.clear()
+        all_layers = QgsProject.instance().mapLayers().values()
+        vector_layers = [lyr for lyr in all_layers if lyr.type() == QgsMapLayerType.VectorLayer]
+        for layer in vector_layers:
+            item = QListWidgetItem(layer.name())
+            item.setData(USER_ROLE, layer.id())
+            self.rename_old_list.addItem(item)
+        if self.rename_old_list.count() > 0:
+            self.rename_old_list.setCurrentRow(0)
+
+    def on_rename_old_layer_changed(self, current, previous):
+        del previous  # tránh cảnh báo biến không dùng
+        if not hasattr(self, "rename_new_list"):
+            return
+        self.rename_new_list.clear()
+        if current is None:
+            return
+
+        layer_id = current.data(USER_ROLE)
+        layer = QgsProject.instance().mapLayers().get(layer_id)
+        if not layer:
+            return
+        suffix = self._geometry_suffix_for_layer(layer)
+        if not suffix:
+            return
+
+        options = [name for name in _QUICK_LAYER_NAME_OPTIONS if name.endswith(suffix)]
+        for name in options:
+            self.rename_new_list.addItem(QListWidgetItem(name))
+
+    def apply_selected_rename(self):
+        if not hasattr(self, "rename_old_list") or not hasattr(self, "rename_new_list"):
+            return
+        old_item = self.rename_old_list.currentItem()
+        new_item = self.rename_new_list.currentItem()
+        if old_item is None:
+            self.log("Chưa chọn layer ở cột Tên cũ.")
+            return
+        if new_item is None:
+            self.log("Chưa chọn tên mới ở cột Tên mới.")
+            return
+
+        layer_id = old_item.data(USER_ROLE)
+        layer = QgsProject.instance().mapLayers().get(layer_id)
+        if not layer:
+            self.log("Layer đã bị xóa khỏi dự án, vui lòng làm mới danh sách.")
+            return
+
+        new_name = new_item.text().strip()
+        if not new_name:
+            self.log("Tên mới không hợp lệ.")
+            return
+        old_name = layer.name()
+        if old_name == new_name:
+            self.log(f"Layer «{old_name}» đã có sẵn tên này.")
+            return
+
+        # Cảnh báo khi tên mới đã tồn tại ở layer khác trong project
+        duplicated_layers = []
+        for lyr in QgsProject.instance().mapLayers().values():
+            if lyr.id() == layer.id():
+                continue
+            if lyr.name() == new_name:
+                duplicated_layers.append(lyr)
+        if duplicated_layers:
+            confirm = self._question_yes_no(
+                "Cảnh báo trùng tên layer",
+                "Tên mới bạn chọn đang trùng với layer đã tồn tại:\n\n"
+                f"«{new_name}»\n\n"
+                "Việc trùng tên có thể gây khó phân biệt khi thao tác/xuất dữ liệu.\n"
+                "Bạn vẫn muốn tiếp tục đổi tên?",
+                default_no=True,
+            )
+            if not confirm:
+                self.log(f"Đã hủy đổi tên do trùng tên layer: «{new_name}».")
+                return
+
+        layer.setName(new_name)
+        old_item.setText(new_name)
+        for i in range(self.list_layers.count()):
+            item_attr = self.list_layers.item(i)
+            if item_attr.data(USER_ROLE) == layer.id():
+                item_attr.setText(new_name)
+                break
+        self.log(f"Đã đổi tên layer: «{old_name}» -> «{new_name}».")
 
     def export_attributes_excel(self):
         selected = self._selected_vector_layers()
