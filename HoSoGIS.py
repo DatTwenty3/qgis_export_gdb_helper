@@ -20,6 +20,7 @@ from qgis.PyQt.QtWidgets import (
     QApplication,
     QCheckBox,
     QFileDialog,
+    QFormLayout,
     QFrame,
     QGroupBox,
     QHBoxLayout,
@@ -420,32 +421,36 @@ class HoSoGISWindow(QMainWindow):
 
     def _build_style(self):
         return """
-        QMainWindow { background-color: #eef2f7; }
+        QMainWindow { background-color: #f1f5f9; }
         QWidget {
-            color: #1e293b;
+            color: #334155;
             font-size: 12px;
         }
         QFrame#headerCard {
             background: #ffffff;
-            border: 1px solid #dbe5f2;
-            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
         }
-        QLabel#title { font-size: 22px; font-weight: 700; color: #0f172a; }
-        QLabel#subtitle { color: #475569; }
+        QLabel#title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        QLabel#subtitle { color: #64748b; font-size: 12px; }
         QFrame#footerBar {
-            background: #f8fafc;
-            border: 1px solid #d9e2ef;
-            border-radius: 10px;
-            min-height: 44px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            min-height: 40px;
         }
         QLabel#footerBrand {
-            color: #1e3a8a;
-            font-size: 13px;
-            font-weight: 800;
-            letter-spacing: 0.12em;
+            color: #2563eb;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
         }
         QLabel#footerCopyright {
-            color: #475569;
+            color: #64748b;
             font-size: 11px;
             font-weight: 500;
         }
@@ -456,27 +461,29 @@ class HoSoGISWindow(QMainWindow):
         }
         QGroupBox {
             background: #ffffff;
-            border: 1px solid #dbe5f2;
-            border-radius: 12px;
-            margin-top: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-top: 10px;
             font-weight: 600;
-            color: #1f2937;
+            color: #0f172a;
         }
         QGroupBox::title {
             subcontrol-origin: margin;
-            left: 12px;
-            padding: 0 6px;
+            left: 10px;
+            padding: 0 4px;
             color: #0f172a;
         }
         QLineEdit, QListWidget, QTextEdit {
-            border: 1px solid #cfd9e7;
-            border-radius: 10px;
-            padding: 7px 9px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 6px 8px;
             background: #ffffff;
+            selection-background-color: #bfdbfe;
+            selection-color: #0f172a;
         }
         QLineEdit:focus, QListWidget:focus, QTextEdit:focus {
-            border: 1px solid #3b82f6;
-            background: #f8fbff;
+            border: 1px solid #2563eb;
+            background: #ffffff;
         }
         QLineEdit::placeholder {
             color: #94a3b8;
@@ -485,75 +492,86 @@ class HoSoGISWindow(QMainWindow):
             background-color: #2563eb;
             color: white;
             border: none;
-            border-radius: 10px;
-            padding: 8px 14px;
+            border-radius: 8px;
+            padding: 7px 12px;
             font-weight: 600;
         }
         QPushButton:hover { background-color: #1d4ed8; }
         QPushButton:pressed { background-color: #1e40af; }
         QPushButton:disabled {
-            background-color: #bfdbfe;
-            color: #eff6ff;
+            background-color: #cbd5e1;
+            color: #f8fafc;
         }
         QPushButton#ghost {
-            background-color: #eff6ff;
-            color: #1d4ed8;
-            border: 1px solid #c7dbff;
+            background-color: #ffffff;
+            color: #334155;
+            border: 1px solid #cbd5e1;
         }
         QPushButton#ghost:hover {
-            background-color: #dbeafe;
-            border: 1px solid #93c5fd;
+            background-color: #f8fafc;
+            border: 1px solid #94a3b8;
         }
-        QTabWidget::pane {
-            border: 1px solid #dbe5f2;
-            border-radius: 12px;
+        QTabWidget#moduleTabs::pane {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
             background: #ffffff;
-            top: -1px;
+            margin-top: 8px;
+            top: 0px;
         }
-        QTabBar::tab {
-            background: #eaf1ff;
-            color: #1e3a8a;
-            border-top-left-radius: 10px;
-            border-top-right-radius: 10px;
-            min-width: 120px;
+        QTabWidget#moduleTabs QTabBar {
+            qproperty-drawBase: 0;
+        }
+        QTabWidget#moduleTabs QTabBar::tab {
+            background: #e2e8f0;
+            color: #475569;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            min-width: 122px;
             padding: 8px 14px;
-            margin-right: 4px;
+            margin-right: 6px;
         }
-        QTabBar::tab:selected {
+        QTabWidget#moduleTabs QTabBar::tab:hover {
+            background: #dbe4ef;
+            color: #1e293b;
+        }
+        QTabWidget#moduleTabs QTabBar::tab:selected {
             background: #ffffff;
-            color: #111827;
-            border: 1px solid #dbe5f2;
-            border-bottom: 1px solid #ffffff;
+            color: #0f172a;
+            border: 1px solid #cbd5e1;
+            font-weight: 600;
+        }
+        QTabWidget#moduleTabs QTabBar::tab:!selected {
+            margin-top: 2px;
+        }
+        QLabel#sectionHint {
+            color: #64748b;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 6px 8px;
         }
         QCheckBox {
             spacing: 7px;
-            color: #334155;
+            color: #475569;
         }
         QCheckBox::indicator {
             width: 16px;
             height: 16px;
-            border-radius: 4px;
-            border: 1px solid #94a3b8;
-            background: #ffffff;
-        }
-        QCheckBox::indicator:checked {
-            background: #2563eb;
-            border: 1px solid #2563eb;
         }
         QSplitter::handle {
-            background: #d6deeb;
-            width: 6px;
-            border-radius: 3px;
+            background: #e2e8f0;
+            width: 4px;
+            border-radius: 2px;
             margin: 6px 0;
         }
         QTextEdit#logView {
-            background: #f8fafc;
+            background: #ffffff;
         }
         QMessageBox {
-            background-color: #f8fafc;
+            background-color: #ffffff;
         }
         QMessageBox QLabel {
-            color: #0f172a;
+            color: #334155;
             font-size: 12px;
         }
         QMessageBox QPushButton {
@@ -568,35 +586,24 @@ class HoSoGISWindow(QMainWindow):
         self.setCentralWidget(container)
 
         root_layout = QVBoxLayout(container)
-        root_layout.setContentsMargins(14, 14, 14, 14)
-        root_layout.setSpacing(10)
+        root_layout.setContentsMargins(12, 12, 12, 12)
+        root_layout.setSpacing(8)
 
         header = QFrame()
         header.setObjectName("headerCard")
         header_layout = QVBoxLayout(header)
         header_layout.setContentsMargins(14, 12, 14, 12)
+        header_layout.setSpacing(2)
         lbl_title = QLabel("HoSoGIS")
         lbl_title.setObjectName("title")
-        lbl_sub = QLabel("Tích hợp đầy đủ: Nhập CAD -> Tạo thuộc tính -> Xuất File Geodatabase (.gdb) và GeoPackage (.gpkg)")
+        lbl_sub = QLabel("Quản lý dữ liệu quy hoạch: nhập CAD, cập nhật thuộc tính, xuất GDB/GPKG")
         lbl_sub.setObjectName("subtitle")
         header_layout.addWidget(lbl_title)
         header_layout.addWidget(lbl_sub)
         root_layout.addWidget(header)
 
-        splitter = QSplitter(ORIENTATION_HORIZONTAL)
-        root_layout.addWidget(splitter, 1)
-
         left_panel = self._build_left_panel()
-        splitter.addWidget(left_panel)
-
-        log_box = QGroupBox("Nhật ký xử lý")
-        log_layout = QVBoxLayout(log_box)
-        self.log_edit = QTextEdit()
-        self.log_edit.setObjectName("logView")
-        self.log_edit.setReadOnly(True)
-        log_layout.addWidget(self.log_edit)
-        splitter.addWidget(log_box)
-        splitter.setSizes([760, 360])
+        root_layout.addWidget(left_panel, 1)
 
         footer = QFrame()
         footer.setObjectName("footerBar")
@@ -622,16 +629,55 @@ class HoSoGISWindow(QMainWindow):
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(10)
+        layout.setSpacing(8)
 
-        # Bước 1
-        box = QGroupBox("Bước 1 - Nhập CAD và tách lớp theo hình học")
+        tabs = QTabWidget()
+        tabs.setObjectName("moduleTabs")
+        tabs.addTab(self._build_tab_import_cad(), "1. Nhập CAD")
+        tabs.addTab(self._build_tab_attributes(), "2. Thuộc tính")
+        tabs.addTab(self._build_tab_export(), "3. Xuất dữ liệu")
+        tabs.addTab(self._build_tab_logs(), "4. Nhật ký xử lý")
+        layout.addWidget(tabs, 1)
+        return panel
+
+    def _build_tab_logs(self):
+        tab = QWidget()
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(4, 4, 4, 4)
+        tab_layout.setSpacing(8)
+
+        hint = QLabel("Theo dõi toàn bộ thông báo xử lý và trạng thái thao tác.")
+        hint.setObjectName("sectionHint")
+        hint.setWordWrap(True)
+        tab_layout.addWidget(hint)
+
+        log_box = QGroupBox("Nhật ký xử lý")
+        log_layout = QVBoxLayout(log_box)
+        self.log_edit = QTextEdit()
+        self.log_edit.setObjectName("logView")
+        self.log_edit.setReadOnly(True)
+        log_layout.addWidget(self.log_edit)
+        tab_layout.addWidget(log_box, 1)
+        return tab
+
+    def _build_tab_import_cad(self):
+        tab = QWidget()
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(4, 4, 4, 4)
+        tab_layout.setSpacing(8)
+
+        hint = QLabel("Nhập file CAD (ưu tiên DXF) và tách lớp theo hình học.")
+        hint.setObjectName("sectionHint")
+        hint.setWordWrap(True)
+        tab_layout.addWidget(hint)
+
+        box = QGroupBox("Nguồn dữ liệu CAD")
         box_layout = QVBoxLayout(box)
-
         row = QHBoxLayout()
         self.input_cad_path = QLineEdit()
         self.input_cad_path.setPlaceholderText("Chọn file CAD (khuyến nghị DXF)")
         btn_browse = QPushButton("Chọn file")
+        btn_browse.setObjectName("ghost")
         btn_browse.clicked.connect(self.choose_cad_file)
         row.addWidget(self.input_cad_path, 1)
         row.addWidget(btn_browse)
@@ -640,31 +686,48 @@ class HoSoGISWindow(QMainWindow):
         btn_run = QPushButton("Chạy nhập bản vẽ")
         btn_run.clicked.connect(self.import_and_split_cad)
         box_layout.addWidget(btn_run)
-        layout.addWidget(box)
+        tab_layout.addWidget(box)
+        tab_layout.addStretch(1)
+        return tab
 
-        # Bước 2
-        form_box = QGroupBox("Bước 2 - Thông tin thuộc tính quy hoạch")
+    def _build_tab_attributes(self):
+        tab = QWidget()
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(4, 4, 4, 4)
+        tab_layout.setSpacing(8)
+
+        hint = QLabel("Cập nhật trường dữ liệu chuẩn và đồng bộ thuộc tính theo layer được chọn.")
+        hint.setObjectName("sectionHint")
+        hint.setWordWrap(True)
+        tab_layout.addWidget(hint)
+
+        form_box = QGroupBox("Thông tin thuộc tính")
         form_layout = QVBoxLayout(form_box)
+        form_grid = QFormLayout()
+        form_grid.setLabelAlignment(ALIGN_VCENTER)
+        form_grid.setHorizontalSpacing(10)
+        form_grid.setVerticalSpacing(6)
 
         self.input_ma_tt = QLineEdit()
-        self.input_ma_hs = QLineEdit("84QHC1000001")
+        self.input_ma_hs = QLineEdit()
         self.input_ma_dt = QLineEdit()
         self.input_ten_dt = QLineEdit()
         self.input_phan_loai = QLineEdit()
         self.input_ghi_chu = QLineEdit()
 
-        self._add_labeled_input(form_layout, "Mã thông tin quy hoạch (maThongTinQH):", self.input_ma_tt)
-        self._add_labeled_input(form_layout, "Mã hồ sơ quy hoạch (maHoSoQH):", self.input_ma_hs)
-        self._add_labeled_input(form_layout, "Mã đối tượng (maDoiTuong):", self.input_ma_dt)
-        self._add_labeled_input(form_layout, "Tên đối tượng (tenDoiTuong):", self.input_ten_dt)
-        self._add_labeled_input(form_layout, "Phân loại (phanLoai):", self.input_phan_loai)
-        self._add_labeled_input(form_layout, "Ghi chú (ghiChu):", self.input_ghi_chu)
+        self._add_labeled_input(form_grid, "Mã thông tin QH", self.input_ma_tt)
+        self._add_labeled_input(form_grid, "Mã hồ sơ QH", self.input_ma_hs)
+        self._add_labeled_input(form_grid, "Mã đối tượng", self.input_ma_dt)
+        self._add_labeled_input(form_grid, "Tên đối tượng", self.input_ten_dt)
+        self._add_labeled_input(form_grid, "Phân loại", self.input_phan_loai)
+        self._add_labeled_input(form_grid, "Ghi chú", self.input_ghi_chu)
+        form_layout.addLayout(form_grid)
 
-        self.chk_delete_old = QCheckBox("Xóa toàn bộ thuộc tính cũ trước khi thêm thuộc tính chuẩn")
+        self.chk_delete_old = QCheckBox("Xóa thuộc tính cũ trước khi cập nhật")
         form_layout.addWidget(self.chk_delete_old)
-        layout.addWidget(form_box)
+        tab_layout.addWidget(form_box)
 
-        layer_box = QGroupBox("Bước 2.1 - Chọn layer cần cập nhật")
+        layer_box = QGroupBox("Layer áp dụng")
         layer_layout = QVBoxLayout(layer_box)
         self.list_layers = QListWidget()
         layer_layout.addWidget(self.list_layers)
@@ -674,7 +737,7 @@ class HoSoGISWindow(QMainWindow):
         btn_select_all.setObjectName("ghost")
         btn_unselect_all = QPushButton("Bỏ chọn tất cả")
         btn_unselect_all.setObjectName("ghost")
-        btn_refresh = QPushButton("Làm mới danh sách")
+        btn_refresh = QPushButton("Làm mới")
         btn_refresh.setObjectName("ghost")
         btn_select_all.clicked.connect(self.select_all_layers)
         btn_unselect_all.clicked.connect(self.unselect_all_layers)
@@ -685,8 +748,8 @@ class HoSoGISWindow(QMainWindow):
         layer_layout.addLayout(btn_row)
 
         excel_row = QHBoxLayout()
-        btn_excel_export = QPushButton("Xuất thuộc tính ra Excel…")
-        btn_excel_import = QPushButton("Nhập thuộc tính từ Excel…")
+        btn_excel_export = QPushButton("Xuất Excel…")
+        btn_excel_import = QPushButton("Nhập Excel…")
         btn_excel_export.setObjectName("ghost")
         btn_excel_import.setObjectName("ghost")
         btn_excel_export.clicked.connect(self.export_attributes_excel)
@@ -695,34 +758,44 @@ class HoSoGISWindow(QMainWindow):
         excel_row.addWidget(btn_excel_import)
         layer_layout.addLayout(excel_row)
 
-        btn_run = QPushButton("Chạy tạo thuộc tính")
+        tab_layout.addWidget(layer_box, 1)
+
+        btn_run = QPushButton("Chạy cập nhật thuộc tính")
         btn_run.clicked.connect(self.add_fields_and_data)
+        tab_layout.addWidget(btn_run)
+        return tab
 
-        layout.addWidget(layer_box, 1)
-        layout.addWidget(btn_run)
+    def _build_tab_export(self):
+        tab = QWidget()
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(4, 4, 4, 4)
+        tab_layout.setSpacing(8)
 
-        # Bước 3
-        box = QGroupBox("Bước 3 - Xuất toàn bộ layer vector theo nhóm (GDB/GPKG)")
+        hint = QLabel("Xuất layer theo cấu trúc nhóm trong Layer Tree (bỏ qua 'base map').")
+        hint.setObjectName("sectionHint")
+        hint.setWordWrap(True)
+        tab_layout.addWidget(hint)
+
+        box = QGroupBox("Định dạng xuất")
         box_layout = QVBoxLayout(box)
-        tip = QLabel("Layer sẽ được xuất theo cấu trúc group trong Layer Tree. Bỏ qua nhóm tên 'base map'.")
-        tip.setWordWrap(True)
-        box_layout.addWidget(tip)
-
         btn_row_export = QHBoxLayout()
-        btn_run_gdb = QPushButton("Chạy xuất GDB")
+        btn_run_gdb = QPushButton("Xuất GDB")
         btn_run_gdb.clicked.connect(self.export_to_gdb)
-        btn_run_gpkg = QPushButton("Chạy xuất GPKG")
+        btn_run_gpkg = QPushButton("Xuất GPKG")
         btn_run_gpkg.clicked.connect(self.export_to_gpkg)
         btn_row_export.addWidget(btn_run_gdb)
         btn_row_export.addWidget(btn_run_gpkg)
         box_layout.addLayout(btn_row_export)
-
-        layout.addWidget(box)
-        return panel
+        tab_layout.addWidget(box)
+        tab_layout.addStretch(1)
+        return tab
 
     def _add_labeled_input(self, layout, text, widget):
-        layout.addWidget(QLabel(text))
-        layout.addWidget(widget)
+        if hasattr(layout, "addRow"):
+            layout.addRow(f"{text}:", widget)
+        else:
+            layout.addWidget(QLabel(text))
+            layout.addWidget(widget)
 
     def log(self, message):
         text = str(message)
