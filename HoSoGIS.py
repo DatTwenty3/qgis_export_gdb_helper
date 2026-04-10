@@ -10,18 +10,24 @@ from qgis.core import (
     QgsLayerTreeLayer,
     QgsMapLayerType,
     QgsProject,
+    QgsVectorDataProvider,
     QgsVectorFileWriter,
     QgsVectorLayer,
     QgsWkbTypes,
 )
 from qgis.gui import QgsProjectionSelectionDialog
-from qgis.PyQt.QtCore import QDate, QDateTime, QVariant, Qt
+from qgis.PyQt.QtCore import QDate, QDateTime, QSize, QVariant, Qt
 from qgis.PyQt.QtGui import QTextCursor
 from qgis.PyQt.QtWidgets import (
+    QAbstractItemView,
+    QAbstractSpinBox,
     QApplication,
     QCheckBox,
+    QComboBox,
+    QDialog,
     QFileDialog,
     QFormLayout,
+    QGridLayout,
     QFrame,
     QGroupBox,
     QHBoxLayout,
@@ -33,11 +39,16 @@ from qgis.PyQt.QtWidgets import (
     QMessageBox,
     QInputDialog,
     QPushButton,
+    QSpinBox,
     QSplitter,
-    QTabWidget,
+    QStackedWidget,
+    QStyle,
+    QTableWidget,
+    QTableWidgetItem,
     QTextEdit,
     QVBoxLayout,
     QWidget,
+    QHeaderView,
 )
 
 # --- EXCEL: xuất/nhập thuộc tính (nhúng trong file, không cần thêm file .py khác; cần openpyxl) ---
@@ -496,6 +507,40 @@ try:
 except AttributeError:
     ALIGN_VCENTER = Qt.AlignVCenter
 
+try:
+    TABLE_NO_EDIT_TRIGGERS = QAbstractItemView.EditTrigger.NoEditTriggers
+except AttributeError:
+    TABLE_NO_EDIT_TRIGGERS = QAbstractItemView.NoEditTriggers
+
+try:
+    TABLE_SELECT_ROWS = QAbstractItemView.SelectionBehavior.SelectRows
+except AttributeError:
+    TABLE_SELECT_ROWS = QAbstractItemView.SelectRows
+
+try:
+    TABLE_EXT_SELECTION = QAbstractItemView.SelectionMode.ExtendedSelection
+except AttributeError:
+    TABLE_EXT_SELECTION = QAbstractItemView.ExtendedSelection
+
+try:
+    SPIN_NO_BUTTONS = QAbstractSpinBox.ButtonSymbols.NoButtons
+except AttributeError:
+    SPIN_NO_BUTTONS = QAbstractSpinBox.NoButtons
+
+try:
+    HEADER_STRETCH = QHeaderView.ResizeMode.Stretch
+except AttributeError:
+    HEADER_STRETCH = QHeaderView.Stretch
+
+try:
+    SCROLLBAR_ALWAYS_OFF = Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+except AttributeError:
+    SCROLLBAR_ALWAYS_OFF = Qt.ScrollBarAlwaysOff
+try:
+    SCROLLBAR_AS_NEEDED = Qt.ScrollBarPolicy.ScrollBarAsNeeded
+except AttributeError:
+    SCROLLBAR_AS_NEEDED = Qt.ScrollBarAsNeeded
+
 # Thương hiệu / bản quyền (hiển thị trên giao diện)
 _DEV_BRAND = "LEDAT"
 _COPYRIGHT_YEAR = "2026"
@@ -505,7 +550,7 @@ class HoSoGISWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("HoSoGIS")
-        self.resize(1120, 760)
+        self.resize(1140, 860)
         self.setStyleSheet(self._build_style())
         self._build_ui()
         self.refresh_vector_layers()
@@ -580,12 +625,66 @@ class HoSoGISWindow(QMainWindow):
             selection-background-color: #bfdbfe;
             selection-color: #0f172a;
         }
+        QListWidget::item {
+            padding: 4px 6px;
+            border-radius: 4px;
+            margin: 1px 0;
+        }
+        QListWidget::item:selected {
+            background: #dbeafe;
+            color: #0f172a;
+        }
         QLineEdit:focus, QListWidget:focus, QTextEdit:focus {
             border: 1px solid #2563eb;
             background: #ffffff;
         }
+        QTableWidget {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            background: #ffffff;
+            gridline-color: #e2e8f0;
+            selection-background-color: #dbeafe;
+            selection-color: #0f172a;
+        }
+        QHeaderView::section {
+            background: #eff6ff;
+            color: #1e3a8a;
+            border: none;
+            border-right: 1px solid #dbeafe;
+            border-bottom: 1px solid #dbeafe;
+            padding: 6px 8px;
+            font-weight: 600;
+        }
         QLineEdit::placeholder {
             color: #94a3b8;
+        }
+        QComboBox, QSpinBox {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 5px 8px;
+            background: #ffffff;
+            min-height: 1.2em;
+        }
+        QComboBox:focus, QSpinBox:focus {
+            border: 1px solid #2563eb;
+        }
+        QComboBox::drop-down {
+            border: none;
+            width: 22px;
+        }
+        QDialog#hosogisSubDialog {
+            background-color: #f8fafc;
+        }
+        QDialog#hosogisSubDialog QLabel {
+            color: #475569;
+        }
+        QTableWidget::item {
+            background: #ffffff;
+            padding: 2px 4px;
+        }
+        QTableWidget::item:selected {
+            background: #dbeafe;
+            color: #0f172a;
         }
         QPushButton {
             background-color: #2563eb;
@@ -610,37 +709,50 @@ class HoSoGISWindow(QMainWindow):
             background-color: #f8fafc;
             border: 1px solid #94a3b8;
         }
-        QTabWidget#moduleTabs::pane {
-            border: 1px solid #e2e8f0;
+        QFrame#moduleNavFrame {
+            background: #e8edf4;
+            border: 1px solid #d8dee9;
+            border-radius: 10px;
+            min-width: 196px;
+            max-width: 220px;
+        }
+        QLabel#moduleNavTitle {
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            padding: 2px 4px 4px 4px;
+        }
+        QListWidget#moduleNav {
+            border: none;
+            background: transparent;
+            outline: none;
+            padding: 4px 0;
+        }
+        QListWidget#moduleNav::item {
+            min-height: 44px;
+            padding: 10px 12px;
+            margin: 4px 8px;
             border-radius: 8px;
-            background: #ffffff;
-            margin-top: 8px;
-            top: 0px;
-        }
-        QTabWidget#moduleTabs QTabBar {
-            qproperty-drawBase: 0;
-        }
-        QTabWidget#moduleTabs QTabBar::tab {
-            background: #e2e8f0;
-            color: #475569;
             border: 1px solid transparent;
-            border-radius: 8px;
-            min-width: 122px;
-            padding: 8px 14px;
-            margin-right: 6px;
-        }
-        QTabWidget#moduleTabs QTabBar::tab:hover {
-            background: #dbe4ef;
-            color: #1e293b;
-        }
-        QTabWidget#moduleTabs QTabBar::tab:selected {
-            background: #ffffff;
-            color: #0f172a;
-            border: 1px solid #cbd5e1;
+            color: #475569;
             font-weight: 600;
         }
-        QTabWidget#moduleTabs QTabBar::tab:!selected {
-            margin-top: 2px;
+        QListWidget#moduleNav::item:hover {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            color: #1e293b;
+        }
+        QListWidget#moduleNav::item:selected {
+            background: #ffffff;
+            border: 1px solid #93c5fd;
+            color: #1e40af;
+        }
+        QStackedWidget#moduleStack {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
         }
         QLabel#sectionHint {
             color: #64748b;
@@ -657,11 +769,24 @@ class HoSoGISWindow(QMainWindow):
             width: 16px;
             height: 16px;
         }
-        QSplitter::handle {
+        QSplitter#hosogisMainSplit::handle,
+        QSplitter#hosogisMainSplit::handle:horizontal,
+        QSplitter#hosogisMainSplit::handle:vertical {
+            background: #f1f5f9;
+            border: none;
+            margin: 0px;
+            padding: 0px;
+        }
+        QSplitter#hosogisMainSplit::handle:hover,
+        QSplitter#hosogisMainSplit::handle:horizontal:hover,
+        QSplitter#hosogisMainSplit::handle:vertical:hover {
+            background: #eef1f6;
+        }
+        QSplitter#hosogisWorkSplit::handle {
             background: #e2e8f0;
-            width: 4px;
-            border-radius: 2px;
-            margin: 6px 0;
+        }
+        QSplitter#hosogisWorkSplit::handle:hover {
+            background: #cbd5e1;
         }
         QTextEdit#logView {
             background: #ffffff;
@@ -704,8 +829,16 @@ class HoSoGISWindow(QMainWindow):
         header_layout.addWidget(lbl_sub)
         root_layout.addWidget(header)
 
-        left_panel = self._build_left_panel()
-        root_layout.addWidget(left_panel, 1)
+        body_split = QSplitter(ORIENTATION_VERTICAL)
+        body_split.setObjectName("hosogisMainSplit")
+        body_split.setChildrenCollapsible(False)
+        body_split.setHandleWidth(4)
+        body_split.addWidget(self._build_left_panel())
+        body_split.addWidget(self._build_log_panel())
+        body_split.setStretchFactor(0, 1)
+        body_split.setStretchFactor(1, 0)
+        body_split.setSizes([560, 200])
+        root_layout.addWidget(body_split, 1)
 
         footer = QFrame()
         footer.setObjectName("footerBar")
@@ -727,47 +860,116 @@ class HoSoGISWindow(QMainWindow):
         footer_layout.addWidget(lbl_footer_copy, 1, ALIGN_VCENTER)
         root_layout.addWidget(footer)
 
+    def _nav_std_icon(self, std_py6, std_py5):
+        sty = self.style()
+        try:
+            return sty.standardIcon(getattr(QStyle.StandardPixmap, std_py6))
+        except AttributeError:
+            return sty.standardIcon(getattr(QStyle, std_py5))
+
     def _build_left_panel(self):
         panel = QWidget()
-        layout = QVBoxLayout(panel)
+        layout = QHBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setSpacing(12)
 
-        tabs = QTabWidget()
-        tabs.setObjectName("moduleTabs")
-        tabs.addTab(self._build_tab_import_cad(), "Nhập CAD")
-        tabs.addTab(self._build_tab_attributes(), "Thuộc tính")
-        tabs.addTab(self._build_tab_quick_rename(), "Đổi tên layer nhanh")
-        tabs.addTab(self._build_tab_export(), "Xuất dữ liệu")
-        tabs.addTab(self._build_tab_logs(), "Nhật ký xử lý")
-        layout.addWidget(tabs, 1)
+        nav_wrap = QFrame()
+        nav_wrap.setObjectName("moduleNavFrame")
+        nav_wrap.setFixedWidth(208)
+        nav_outer = QVBoxLayout(nav_wrap)
+        nav_outer.setContentsMargins(10, 12, 10, 12)
+        nav_outer.setSpacing(6)
+
+        nav_heading = QLabel("Chức năng")
+        nav_heading.setObjectName("moduleNavTitle")
+        nav_outer.addWidget(nav_heading)
+
+        self.module_nav = QListWidget()
+        self.module_nav.setObjectName("moduleNav")
+        self.module_nav.setIconSize(QSize(22, 22))
+        self.module_nav.setSpacing(2)
+        self.module_nav.setHorizontalScrollBarPolicy(SCROLLBAR_ALWAYS_OFF)
+        self.module_nav.setVerticalScrollBarPolicy(SCROLLBAR_AS_NEEDED)
+        self.module_nav.setUniformItemSizes(True)
+
+        nav_entries = [
+            (
+                self._nav_std_icon("SP_DialogOpenButton", "SP_DialogOpenButton"),
+                "Nhập CAD",
+                "Nhập bản vẽ CAD (DXF/DWG) và tách lớp",
+            ),
+            (
+                self._nav_std_icon("SP_FileDialogInfoView", "SP_FileDialogInfoView"),
+                "Thuộc tính",
+                "Cập nhật trường chuẩn quy hoạch cho layer",
+            ),
+            (
+                self._nav_std_icon("SP_BrowserReload", "SP_BrowserReload"),
+                "Đổi tên nhanh",
+                "Đổi tên layer theo danh mục chuẩn",
+            ),
+            (
+                self._nav_std_icon("SP_DialogSaveButton", "SP_DialogSaveButton"),
+                "Nhập / Xuất",
+                "Nhập GDB và xuất GDB / GPKG",
+            ),
+        ]
+        for icon, title, tip in nav_entries:
+            item = QListWidgetItem(icon, title)
+            item.setToolTip(tip)
+            self.module_nav.addItem(item)
+
+        self.module_stack = QStackedWidget()
+        self.module_stack.setObjectName("moduleStack")
+        self.module_stack.addWidget(self._build_tab_import_cad())
+        self.module_stack.addWidget(self._build_tab_attributes())
+        self.module_stack.addWidget(self._build_tab_quick_rename())
+        self.module_stack.addWidget(self._build_tab_export())
+
+        self.module_nav.currentRowChanged.connect(self.module_stack.setCurrentIndex)
+        self.module_nav.setCurrentRow(0)
+
+        nav_outer.addWidget(self.module_nav, 1)
+        layout.addWidget(nav_wrap, 0)
+        layout.addWidget(self.module_stack, 1)
         return panel
 
-    def _build_tab_logs(self):
-        tab = QWidget()
-        tab_layout = QVBoxLayout(tab)
-        tab_layout.setContentsMargins(4, 4, 4, 4)
-        tab_layout.setSpacing(8)
+    def _build_log_panel(self):
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(0, 4, 0, 0)
+        layout.setSpacing(6)
 
-        hint = QLabel("Theo dõi toàn bộ thông báo xử lý và trạng thái thao tác.")
+        top = QHBoxLayout()
+        top.setSpacing(8)
+        lbl = QLabel("Nhật ký xử lý")
+        lbl.setStyleSheet("font-weight: 700; color: #0f172a; font-size: 13px;")
+        hint = QLabel("Thông báo từ các thao tác hiển thị tại đây; có thể kéo thanh phía trên để chỉnh chiều cao.")
         hint.setObjectName("sectionHint")
         hint.setWordWrap(True)
-        tab_layout.addWidget(hint)
+        top.addWidget(lbl)
+        top.addWidget(hint, 1)
+        btn_clear = QPushButton("Xóa nhật ký")
+        btn_clear.setObjectName("ghost")
+        btn_clear.clicked.connect(self._clear_log)
+        top.addWidget(btn_clear)
+        layout.addLayout(top)
 
-        log_box = QGroupBox("Nhật ký xử lý")
-        log_layout = QVBoxLayout(log_box)
         self.log_edit = QTextEdit()
         self.log_edit.setObjectName("logView")
         self.log_edit.setReadOnly(True)
-        log_layout.addWidget(self.log_edit)
-        tab_layout.addWidget(log_box, 1)
-        return tab
+        self.log_edit.setMinimumHeight(110)
+        layout.addWidget(self.log_edit, 1)
+        return panel
+
+    def _clear_log(self):
+        self.log_edit.clear()
 
     def _build_tab_import_cad(self):
         tab = QWidget()
         tab_layout = QVBoxLayout(tab)
-        tab_layout.setContentsMargins(4, 4, 4, 4)
-        tab_layout.setSpacing(8)
+        tab_layout.setContentsMargins(10, 10, 10, 10)
+        tab_layout.setSpacing(10)
 
         hint = QLabel("Nhập file CAD (ưu tiên DXF) và tách lớp theo hình học.")
         hint.setObjectName("sectionHint")
@@ -796,20 +998,32 @@ class HoSoGISWindow(QMainWindow):
     def _build_tab_attributes(self):
         tab = QWidget()
         tab_layout = QVBoxLayout(tab)
-        tab_layout.setContentsMargins(4, 4, 4, 4)
-        tab_layout.setSpacing(8)
+        tab_layout.setContentsMargins(10, 10, 10, 10)
+        tab_layout.setSpacing(10)
 
-        hint = QLabel("Cập nhật trường dữ liệu chuẩn và đồng bộ thuộc tính theo layer được chọn.")
+        hint = QLabel(
+            "1) Nhập giá trị chuẩn bên trái.\n"
+            "2) Chọn layer bên phải — xem bảng trường phía dưới (có thể thêm / đổi tên / xóa cột).\n"
+            "3) Bấm «Chạy cập nhật thuộc tính»."
+        )
         hint.setObjectName("sectionHint")
         hint.setWordWrap(True)
         tab_layout.addWidget(hint)
 
+        main_splitter = QSplitter(ORIENTATION_HORIZONTAL)
+        main_splitter.setObjectName("hosogisWorkSplit")
+        main_splitter.setChildrenCollapsible(False)
+        main_splitter.setHandleWidth(5)
+
         form_box = QGroupBox("Thông tin thuộc tính")
         form_layout = QVBoxLayout(form_box)
-        form_grid = QFormLayout()
-        form_grid.setLabelAlignment(ALIGN_VCENTER)
-        form_grid.setHorizontalSpacing(10)
-        form_grid.setVerticalSpacing(6)
+        form_layout.setContentsMargins(12, 14, 12, 12)
+        form_layout.setSpacing(10)
+        form_grid = QGridLayout()
+        form_grid.setHorizontalSpacing(12)
+        form_grid.setVerticalSpacing(8)
+        form_grid.setColumnStretch(1, 1)
+        form_grid.setColumnStretch(3, 1)
 
         self.input_ma_tt = QLineEdit()
         self.input_ma_hs = QLineEdit()
@@ -818,24 +1032,59 @@ class HoSoGISWindow(QMainWindow):
         self.input_phan_loai = QLineEdit()
         self.input_ghi_chu = QLineEdit()
 
-        self._add_labeled_input(form_grid, "Mã thông tin QH", self.input_ma_tt)
-        self._add_labeled_input(form_grid, "Mã hồ sơ QH", self.input_ma_hs)
-        self._add_labeled_input(form_grid, "Mã đối tượng", self.input_ma_dt)
-        self._add_labeled_input(form_grid, "Tên đối tượng", self.input_ten_dt)
-        self._add_labeled_input(form_grid, "Phân loại", self.input_phan_loai)
-        self._add_labeled_input(form_grid, "Ghi chú", self.input_ghi_chu)
+        def _lbl(text):
+            w = QLabel(text)
+            w.setAlignment(ALIGN_VCENTER)
+            return w
+
+        form_grid.addWidget(_lbl("Mã thông tin QH"), 0, 0)
+        form_grid.addWidget(self.input_ma_tt, 0, 1)
+        form_grid.addWidget(_lbl("Mã hồ sơ QH"), 0, 2)
+        form_grid.addWidget(self.input_ma_hs, 0, 3)
+        form_grid.addWidget(_lbl("Mã đối tượng"), 1, 0)
+        form_grid.addWidget(self.input_ma_dt, 1, 1)
+        form_grid.addWidget(_lbl("Tên đối tượng"), 1, 2)
+        form_grid.addWidget(self.input_ten_dt, 1, 3)
+        form_grid.addWidget(_lbl("Phân loại"), 2, 0)
+        form_grid.addWidget(self.input_phan_loai, 2, 1, 1, 3)
+        form_grid.addWidget(_lbl("Ghi chú"), 3, 0)
+        form_grid.addWidget(self.input_ghi_chu, 3, 1, 1, 3)
         form_layout.addLayout(form_grid)
 
         self.chk_delete_old = QCheckBox("Xóa thuộc tính cũ trước khi cập nhật")
         form_layout.addWidget(self.chk_delete_old)
-        tab_layout.addWidget(form_box)
+        form_layout.addStretch(1)
+        main_splitter.addWidget(form_box)
+
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(8)
 
         layer_box = QGroupBox("Layer áp dụng")
         layer_layout = QVBoxLayout(layer_box)
+        layer_layout.setContentsMargins(12, 12, 12, 14)
+        layer_layout.setSpacing(8)
+        filter_row = QHBoxLayout()
+        filter_row.setSpacing(8)
+        self.input_layer_filter = QLineEdit()
+        self.input_layer_filter.setPlaceholderText("Lọc nhanh theo tên layer...")
+        self.input_layer_filter.textChanged.connect(self.filter_attribute_layers)
+        self.lbl_layer_count = QLabel("Đã chọn: 0 | Hiển thị: 0")
+        self.lbl_layer_count.setStyleSheet("color:#64748b; font-weight:600;")
+        filter_row.addWidget(self.input_layer_filter, 1)
+        filter_row.addWidget(self.lbl_layer_count)
+        layer_layout.addLayout(filter_row)
+
         self.list_layers = QListWidget()
+        self.list_layers.currentItemChanged.connect(self.on_attribute_layer_changed)
+        self.list_layers.itemChanged.connect(self.update_selected_layer_count)
+        self.list_layers.setAlternatingRowColors(False)
+        self.list_layers.setMinimumHeight(96)
         layer_layout.addWidget(self.list_layers)
 
         btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
         btn_select_all = QPushButton("Chọn tất cả")
         btn_select_all.setObjectName("ghost")
         btn_unselect_all = QPushButton("Bỏ chọn tất cả")
@@ -851,6 +1100,7 @@ class HoSoGISWindow(QMainWindow):
         layer_layout.addLayout(btn_row)
 
         excel_row = QHBoxLayout()
+        excel_row.setSpacing(8)
         btn_excel_export = QPushButton("Xuất Excel…")
         btn_excel_import = QPushButton("Nhập Excel…")
         btn_excel_export.setObjectName("ghost")
@@ -861,7 +1111,56 @@ class HoSoGISWindow(QMainWindow):
         excel_row.addWidget(btn_excel_import)
         layer_layout.addLayout(excel_row)
 
-        tab_layout.addWidget(layer_box, 1)
+        preview_box = QGroupBox("Xem trước thuộc tính layer đang chọn")
+        preview_layout = QVBoxLayout(preview_box)
+        preview_layout.setContentsMargins(12, 12, 12, 14)
+        preview_layout.setSpacing(8)
+        self.attr_preview_meta = QLabel("Chọn 1 layer để xem cấu trúc trường dữ liệu.")
+        self.attr_preview_meta.setObjectName("sectionHint")
+        self.attr_preview_meta.setWordWrap(True)
+        preview_layout.addWidget(self.attr_preview_meta)
+        self.attr_preview_table = QTableWidget(0, 3)
+        self.attr_preview_table.setHorizontalHeaderLabels(
+            ["Tên thuộc tính", "Kiểu dữ liệu", "Độ dài dữ liệu"]
+        )
+        self.attr_preview_table.setEditTriggers(TABLE_NO_EDIT_TRIGGERS)
+        self.attr_preview_table.setSelectionBehavior(TABLE_SELECT_ROWS)
+        self.attr_preview_table.setSelectionMode(TABLE_EXT_SELECTION)
+        self.attr_preview_table.verticalHeader().setVisible(False)
+        self.attr_preview_table.setAlternatingRowColors(False)
+        self.attr_preview_table.setShowGrid(True)
+        self.attr_preview_table.setMinimumHeight(120)
+        preview_layout.addWidget(self.attr_preview_table)
+
+        field_btn_row = QHBoxLayout()
+        field_btn_row.setSpacing(8)
+        btn_add_field = QPushButton("Thêm thuộc tính…")
+        btn_rename_field = QPushButton("Đổi tên…")
+        btn_delete_field = QPushButton("Xóa thuộc tính")
+        btn_rename_field.setObjectName("ghost")
+        btn_delete_field.setObjectName("ghost")
+        btn_add_field.clicked.connect(self.add_attribute_field_manual)
+        btn_rename_field.clicked.connect(self.rename_attribute_field_manual)
+        btn_delete_field.clicked.connect(self.delete_attribute_fields_manual)
+        field_btn_row.addWidget(btn_add_field)
+        field_btn_row.addWidget(btn_rename_field)
+        field_btn_row.addWidget(btn_delete_field)
+        field_btn_row.addStretch(1)
+        preview_layout.addLayout(field_btn_row)
+
+        right_splitter = QSplitter(ORIENTATION_VERTICAL)
+        right_splitter.setObjectName("hosogisWorkSplit")
+        right_splitter.setChildrenCollapsible(False)
+        right_splitter.setHandleWidth(5)
+        right_splitter.addWidget(layer_box)
+        right_splitter.addWidget(preview_box)
+        right_splitter.setChildrenCollapsible(False)
+        right_splitter.setSizes([300, 220])
+        right_layout.addWidget(right_splitter, 1)
+
+        main_splitter.addWidget(right_panel)
+        main_splitter.setSizes([420, 700])
+        tab_layout.addWidget(main_splitter, 1)
 
         btn_run = QPushButton("Chạy cập nhật thuộc tính")
         btn_run.clicked.connect(self.add_fields_and_data)
@@ -871,8 +1170,8 @@ class HoSoGISWindow(QMainWindow):
     def _build_tab_quick_rename(self):
         tab = QWidget()
         tab_layout = QVBoxLayout(tab)
-        tab_layout.setContentsMargins(4, 4, 4, 4)
-        tab_layout.setSpacing(8)
+        tab_layout.setContentsMargins(10, 10, 10, 10)
+        tab_layout.setSpacing(10)
 
         hint = QLabel(
             "Đổi tên nhanh layer theo danh mục chuẩn. "
@@ -885,21 +1184,27 @@ class HoSoGISWindow(QMainWindow):
         box = QGroupBox("Đổi tên nhanh")
         box_layout = QVBoxLayout(box)
 
-        split = QHBoxLayout()
+        split = QSplitter(ORIENTATION_HORIZONTAL)
+        split.setObjectName("hosogisWorkSplit")
+        split.setChildrenCollapsible(False)
+        split.setHandleWidth(5)
         old_box = QGroupBox("Tên cũ (layer hiện tại)")
         old_layout = QVBoxLayout(old_box)
         self.rename_old_list = QListWidget()
+        self.rename_old_list.setMinimumHeight(180)
         self.rename_old_list.currentItemChanged.connect(self.on_rename_old_layer_changed)
         old_layout.addWidget(self.rename_old_list)
 
         new_box = QGroupBox("Tên mới (chọn từ danh mục)")
         new_layout = QVBoxLayout(new_box)
         self.rename_new_list = QListWidget()
+        self.rename_new_list.setMinimumHeight(180)
         new_layout.addWidget(self.rename_new_list)
 
-        split.addWidget(old_box, 1)
-        split.addWidget(new_box, 1)
-        box_layout.addLayout(split)
+        split.addWidget(old_box)
+        split.addWidget(new_box)
+        split.setSizes([400, 400])
+        box_layout.addWidget(split, 1)
 
         btn_row = QHBoxLayout()
         btn_refresh = QPushButton("Làm mới danh sách")
@@ -917,8 +1222,8 @@ class HoSoGISWindow(QMainWindow):
     def _build_tab_export(self):
         tab = QWidget()
         tab_layout = QVBoxLayout(tab)
-        tab_layout.setContentsMargins(4, 4, 4, 4)
-        tab_layout.setSpacing(8)
+        tab_layout.setContentsMargins(10, 10, 10, 10)
+        tab_layout.setSpacing(10)
 
         hint = QLabel("Xuất/nhập dữ liệu GDB, GPKG theo cấu trúc nhóm nghiệp vụ.")
         hint.setObjectName("sectionHint")
@@ -927,7 +1232,17 @@ class HoSoGISWindow(QMainWindow):
 
         import_box = QGroupBox("Nhập dữ liệu GDB")
         import_layout = QVBoxLayout(import_box)
+        import_layout.setContentsMargins(12, 14, 12, 12)
+        import_layout.setSpacing(10)
+        import_intro = QLabel(
+            "Chọn thư mục File Geodatabase (*.gdb) trên máy, sau đó nhập các lớp vào dự án QGIS."
+        )
+        import_intro.setWordWrap(True)
+        import_intro.setObjectName("sectionHint")
+        import_layout.addWidget(import_intro)
+
         import_row = QHBoxLayout()
+        import_row.setSpacing(8)
         self.input_gdb_path = QLineEdit()
         self.input_gdb_path.setPlaceholderText("Chọn thư mục File Geodatabase (*.gdb)")
         btn_browse_gdb = QPushButton("Chọn GDB")
@@ -938,21 +1253,35 @@ class HoSoGISWindow(QMainWindow):
         import_layout.addLayout(import_row)
 
         btn_import_gdb = QPushButton("Chạy nhập GDB")
+        btn_import_gdb.setMinimumHeight(36)
         btn_import_gdb.clicked.connect(self.import_from_gdb)
         import_layout.addWidget(btn_import_gdb)
-        tab_layout.addWidget(import_box)
 
-        box = QGroupBox("Xuất dữ liệu")
-        box_layout = QVBoxLayout(box)
+        export_box = QGroupBox("Xuất dữ liệu")
+        export_layout = QVBoxLayout(export_box)
+        export_layout.setContentsMargins(12, 14, 12, 12)
+        export_layout.setSpacing(10)
+        export_intro = QLabel(
+            "Xuất các lớp vector trong dự án hiện tại sang định dạng GDB hoặc GPKG."
+        )
+        export_intro.setWordWrap(True)
+        export_intro.setObjectName("sectionHint")
+        export_layout.addWidget(export_intro)
+
         btn_row_export = QHBoxLayout()
+        btn_row_export.setSpacing(8)
         btn_run_gdb = QPushButton("Xuất GDB")
         btn_run_gdb.clicked.connect(self.export_to_gdb)
         btn_run_gpkg = QPushButton("Xuất GPKG")
         btn_run_gpkg.clicked.connect(self.export_to_gpkg)
-        btn_row_export.addWidget(btn_run_gdb)
-        btn_row_export.addWidget(btn_run_gpkg)
-        box_layout.addLayout(btn_row_export)
-        tab_layout.addWidget(box)
+        for b in (btn_run_gdb, btn_run_gpkg):
+            b.setMinimumHeight(36)
+        btn_row_export.addWidget(btn_run_gdb, 1)
+        btn_row_export.addWidget(btn_run_gpkg, 1)
+        export_layout.addLayout(btn_row_export)
+
+        tab_layout.addWidget(import_box, 0)
+        tab_layout.addWidget(export_box, 0)
         tab_layout.addStretch(1)
         return tab
 
@@ -1040,16 +1369,47 @@ class HoSoGISWindow(QMainWindow):
             item.setCheckState(CHK_CHECKED)
             item.setData(USER_ROLE, layer.id())
             self.list_layers.addItem(item)
+        self.filter_attribute_layers()
+        self.update_selected_layer_count()
+        if self.list_layers.count() > 0:
+            self.list_layers.setCurrentRow(0)
+        else:
+            self._clear_attribute_preview()
         self.refresh_rename_layers()
         self.log(f"Đã tải danh sách layer: {len(vector_layers)} layer vector.")
 
     def select_all_layers(self):
         for i in range(self.list_layers.count()):
             self.list_layers.item(i).setCheckState(CHK_CHECKED)
+        self.update_selected_layer_count()
 
     def unselect_all_layers(self):
         for i in range(self.list_layers.count()):
             self.list_layers.item(i).setCheckState(CHK_UNCHECKED)
+        self.update_selected_layer_count()
+
+    def filter_attribute_layers(self):
+        if not hasattr(self, "list_layers"):
+            return
+        keyword = ""
+        if hasattr(self, "input_layer_filter"):
+            keyword = self.input_layer_filter.text().strip().lower()
+        for i in range(self.list_layers.count()):
+            item = self.list_layers.item(i)
+            item.setHidden(keyword not in item.text().lower())
+
+    def update_selected_layer_count(self):
+        if not hasattr(self, "lbl_layer_count") or not hasattr(self, "list_layers"):
+            return
+        selected_count = 0
+        visible_count = 0
+        for i in range(self.list_layers.count()):
+            item = self.list_layers.item(i)
+            if not item.isHidden():
+                visible_count += 1
+            if item.checkState() == CHK_CHECKED:
+                selected_count += 1
+        self.lbl_layer_count.setText(f"Đã chọn: {selected_count} | Hiển thị: {visible_count}")
 
     def _selected_vector_layers(self):
         id_map = QgsProject.instance().mapLayers()
@@ -1062,6 +1422,311 @@ class HoSoGISWindow(QMainWindow):
                 if layer and layer.type() == QgsMapLayerType.VectorLayer:
                     selected.append(layer)
         return selected
+
+    def _clear_attribute_preview(self):
+        if not hasattr(self, "attr_preview_table"):
+            return
+        self.attr_preview_table.setRowCount(0)
+        if hasattr(self, "attr_preview_meta"):
+            self.attr_preview_meta.setText("Chọn 1 layer để xem cấu trúc trường dữ liệu.")
+
+    def on_attribute_layer_changed(self, current, previous):
+        del previous  # tránh cảnh báo biến không dùng
+        if not hasattr(self, "attr_preview_table"):
+            return
+        self._clear_attribute_preview()
+        if current is None:
+            return
+
+        layer_id = current.data(USER_ROLE)
+        layer = QgsProject.instance().mapLayers().get(layer_id)
+        if not layer or layer.type() != QgsMapLayerType.VectorLayer:
+            return
+        self._fill_attribute_preview_table(layer)
+
+    def _preview_target_layer(self):
+        item = self.list_layers.currentItem()
+        if item is None or item.isHidden():
+            return None
+        layer_id = item.data(USER_ROLE)
+        layer = QgsProject.instance().mapLayers().get(layer_id)
+        if layer and layer.type() == QgsMapLayerType.VectorLayer:
+            return layer
+        return None
+
+    def _sanitize_field_name(self, value):
+        text = str(value).strip()
+        if not text:
+            return ""
+        for ch in '<>:"/\\|?*':
+            text = text.replace(ch, "_")
+        text = text.replace(" ", "_")
+        return text
+
+    def _fill_attribute_preview_table(self, layer):
+        if not hasattr(self, "attr_preview_table"):
+            return
+        fields = layer.fields()
+        if hasattr(self, "attr_preview_meta"):
+            self.attr_preview_meta.setText(
+                f"Layer: «{layer.name()}» — Tổng số trường: {fields.count()}"
+            )
+        self.attr_preview_table.setRowCount(fields.count())
+        for i in range(fields.count()):
+            fld = fields.at(i)
+            name_item = QTableWidgetItem(fld.name())
+            name_item.setData(USER_ROLE, i)
+            type_item = QTableWidgetItem(fld.typeName() or str(fld.type()))
+            length_val = fld.length()
+            length_text = str(length_val) if int(length_val) > 0 else "-"
+            length_item = QTableWidgetItem(length_text)
+            self.attr_preview_table.setItem(i, 0, name_item)
+            self.attr_preview_table.setItem(i, 1, type_item)
+            self.attr_preview_table.setItem(i, 2, length_item)
+
+        header = self.attr_preview_table.horizontalHeader()
+        header.setStretchLastSection(True)
+        header.setSectionResizeMode(0, HEADER_STRETCH)
+        header.setSectionResizeMode(1, HEADER_STRETCH)
+
+    def add_attribute_field_manual(self):
+        layer = self._preview_target_layer()
+        if layer is None:
+            self.log("Chưa chọn layer để thêm thuộc tính.")
+            return
+        pr = layer.dataProvider()
+        if pr is None:
+            self.log("Layer không có nhà cung cấp dữ liệu, không thể thêm trường.")
+            return
+        caps = pr.capabilities()
+        add_cap = getattr(QgsVectorDataProvider, "AddAttributes", None)
+        if add_cap is not None and not (caps & add_cap):
+            QMessageBox.warning(
+                self,
+                "Không thể thêm thuộc tính",
+                "Nguồn dữ liệu của layer này không cho phép thêm cột mới.",
+            )
+            return
+
+        dlg = QDialog(self)
+        dlg.setObjectName("hosogisSubDialog")
+        dlg.setWindowTitle("Thêm thuộc tính")
+        dlg.setMinimumWidth(400)
+        outer = QVBoxLayout(dlg)
+        outer.setContentsMargins(16, 16, 16, 16)
+        outer.setSpacing(12)
+        form = QFormLayout()
+        form.setLabelAlignment(ALIGN_VCENTER)
+        form.setHorizontalSpacing(10)
+        form.setVerticalSpacing(10)
+        le_name = QLineEdit()
+        le_name.setPlaceholderText("Ví dụ: tenDoiTuong")
+        combo_type = QComboBox()
+        combo_type.addItem("Văn bản (String)", "string")
+        combo_type.addItem("Số nguyên (Integer)", "int")
+        combo_type.addItem("Số thực (Double)", "double")
+        combo_type.addItem("Đúng/Sai (Boolean)", "bool")
+        combo_type.addItem("Ngày (Date)", "date")
+        spin_len = QSpinBox()
+        spin_len.setButtonSymbols(SPIN_NO_BUTTONS)
+        spin_len.setRange(1, 255)
+        spin_len.setValue(80)
+        spin_len.setEnabled(True)
+
+        def on_type_changed(_idx):
+            spin_len.setEnabled(combo_type.currentData() == "string")
+
+        combo_type.currentIndexChanged.connect(on_type_changed)
+        form.addRow("Tên trường:", le_name)
+        form.addRow("Kiểu dữ liệu:", combo_type)
+        form.addRow("Độ dài (chuỗi):", spin_len)
+        outer.addLayout(form)
+        dlg_btn_row = QHBoxLayout()
+        dlg_btn_row.setSpacing(8)
+        dlg_btn_row.addStretch(1)
+        btn_dlg_cancel = QPushButton("Hủy")
+        btn_dlg_cancel.setObjectName("ghost")
+        btn_dlg_ok = QPushButton("Thêm trường")
+        btn_dlg_cancel.clicked.connect(dlg.reject)
+        btn_dlg_ok.clicked.connect(dlg.accept)
+        dlg_btn_row.addWidget(btn_dlg_cancel)
+        dlg_btn_row.addWidget(btn_dlg_ok)
+        outer.addLayout(dlg_btn_row)
+
+        exec_res = dlg.exec()
+        accepted_code = getattr(QDialog, "Accepted", 1)
+        dialog_ok = exec_res == accepted_code
+        dialog_code = getattr(QDialog, "DialogCode", None)
+        if dialog_code is not None and hasattr(dialog_code, "Accepted"):
+            dialog_ok = dialog_ok or exec_res == dialog_code.Accepted
+        if not dialog_ok:
+            return
+
+        raw_name = self._sanitize_field_name(le_name.text())
+        if not raw_name:
+            self.log("Tên trường không hợp lệ.")
+            return
+        if layer.fields().indexOf(raw_name) >= 0:
+            self.log(f"Trường «{raw_name}» đã tồn tại trên layer.")
+            return
+
+        vtype = combo_type.currentData()
+        if vtype == "string":
+            new_field = QgsField(raw_name, QVariant.String, len=spin_len.value())
+        elif vtype == "int":
+            new_field = QgsField(raw_name, QVariant.Int)
+        elif vtype == "double":
+            new_field = QgsField(raw_name, QVariant.Double, len=20, prec=8)
+        elif vtype == "bool":
+            new_field = QgsField(raw_name, QVariant.Bool)
+        elif vtype == "date":
+            new_field = QgsField(raw_name, QVariant.Date)
+        else:
+            new_field = QgsField(raw_name, QVariant.String, len=80)
+
+        layer.startEditing()
+        pr = layer.dataProvider()
+        _added = pr.addAttributes([new_field])
+        if _added is False:
+            layer.rollBack()
+            self.log(f"Lỗi: không thêm được trường «{raw_name}».")
+            return
+        layer.updateFields()
+        if not layer.commitChanges():
+            layer.rollBack()
+            self.log("Lỗi: không lưu được thay đổi cấu trúc trường (đã hủy).")
+            return
+        self.log(f"Đã thêm trường «{raw_name}» vào layer «{layer.name()}».")
+        self._fill_attribute_preview_table(layer)
+
+    def rename_attribute_field_manual(self):
+        layer = self._preview_target_layer()
+        if layer is None:
+            self.log("Chưa chọn layer để đổi tên thuộc tính.")
+            return
+        pr = layer.dataProvider()
+        if pr is None:
+            return
+        caps = pr.capabilities()
+        ren_cap = getattr(QgsVectorDataProvider, "RenameAttributes", None)
+        if ren_cap is not None and not (caps & ren_cap):
+            QMessageBox.warning(
+                self,
+                "Không thể đổi tên",
+                "Nguồn dữ liệu của layer này không hỗ trợ đổi tên cột.",
+            )
+            return
+        if not hasattr(layer, "renameAttribute"):
+            QMessageBox.warning(
+                self,
+                "Không thể đổi tên",
+                "Phiên bản QGIS hiện tại không hỗ trợ đổi tên trường theo cách này.",
+            )
+            return
+
+        rows = self.attr_preview_table.selectionModel().selectedRows()
+        if len(rows) != 1:
+            self.log("Hãy chọn đúng một dòng trong bảng thuộc tính để đổi tên.")
+            return
+        row = rows[0].row()
+        name_item = self.attr_preview_table.item(row, 0)
+        if name_item is None:
+            return
+        fidx = name_item.data(USER_ROLE)
+        if fidx is None or int(fidx) < 0:
+            return
+        old_name = layer.fields().at(int(fidx)).name()
+        new_name, ok = QInputDialog.getText(
+            self,
+            "Đổi tên thuộc tính",
+            f"Tên mới cho trường «{old_name}»:",
+            text=old_name,
+        )
+        if not ok:
+            return
+        new_name = self._sanitize_field_name(new_name)
+        if not new_name:
+            self.log("Tên mới không hợp lệ.")
+            return
+        if new_name == old_name:
+            return
+        if layer.fields().indexOf(new_name) >= 0:
+            self.log(f"Tên «{new_name}» đã tồn tại trên layer.")
+            return
+
+        layer.startEditing()
+        _ren = layer.renameAttribute(int(fidx), new_name)
+        if _ren is False:
+            layer.rollBack()
+            self.log(f"Lỗi: không đổi tên được trường «{old_name}».")
+            return
+        if not layer.commitChanges():
+            layer.rollBack()
+            self.log("Lỗi: không lưu được đổi tên trường (đã hủy).")
+            return
+        self.log(f"Đã đổi tên trường: «{old_name}» → «{new_name}» (layer «{layer.name()}»).")
+        self._fill_attribute_preview_table(layer)
+
+    def delete_attribute_fields_manual(self):
+        layer = self._preview_target_layer()
+        if layer is None:
+            self.log("Chưa chọn layer để xóa thuộc tính.")
+            return
+        pr = layer.dataProvider()
+        if pr is None:
+            return
+        caps = pr.capabilities()
+        del_cap = getattr(QgsVectorDataProvider, "DeleteAttributes", None)
+        if del_cap is not None and not (caps & del_cap):
+            QMessageBox.warning(
+                self,
+                "Không thể xóa thuộc tính",
+                "Nguồn dữ liệu của layer này không cho phép xóa cột.",
+            )
+            return
+
+        rows = self.attr_preview_table.selectionModel().selectedRows()
+        if not rows:
+            self.log("Hãy chọn ít nhất một dòng trong bảng thuộc tính để xóa.")
+            return
+        indices = []
+        for mi in rows:
+            name_item = self.attr_preview_table.item(mi.row(), 0)
+            if name_item is None:
+                continue
+            fidx = name_item.data(USER_ROLE)
+            if fidx is not None:
+                indices.append(int(fidx))
+        if not indices:
+            return
+        indices = sorted(set(indices), reverse=True)
+        names = [layer.fields().at(i).name() for i in indices]
+        preview = ", ".join(names[:8])
+        if len(names) > 8:
+            preview += ", …"
+        if not self._question_yes_no(
+            "Xác nhận xóa thuộc tính",
+            f"Sẽ xóa {len(names)} trường khỏi layer «{layer.name()}»:\n\n{preview}\n\n"
+            "Thao tác này không thể hoàn tác từ HoSoGIS. Tiếp tục?",
+            default_no=True,
+        ):
+            self.log("Đã hủy xóa thuộc tính.")
+            return
+
+        layer.startEditing()
+        pr = layer.dataProvider()
+        _deleted = pr.deleteAttributes(indices)
+        if _deleted is False:
+            layer.rollBack()
+            self.log("Lỗi: không xóa được các trường đã chọn.")
+            return
+        layer.updateFields()
+        if not layer.commitChanges():
+            layer.rollBack()
+            self.log("Lỗi: không lưu được sau khi xóa trường (đã hủy).")
+            return
+        self.log(f"Đã xóa {len(names)} trường khỏi layer «{layer.name()}».")
+        self._fill_attribute_preview_table(layer)
 
     def _geometry_suffix_for_layer(self, layer):
         if layer.geometryType() == QgsWkbTypes.PointGeometry:

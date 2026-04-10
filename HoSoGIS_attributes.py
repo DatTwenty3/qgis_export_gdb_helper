@@ -5,9 +5,23 @@ from collections import defaultdict
 
 from qgis.core import QgsProject, QgsField, QgsMapLayerType
 from qgis.PyQt.QtCore import QDate, QDateTime, QVariant, Qt
-from qgis.PyQt.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-                                 QLineEdit, QListWidget, QListWidgetItem, 
-                                 QPushButton, QDialogButtonBox, QScrollArea, QWidget, QMessageBox, QCheckBox)
+from qgis.PyQt.QtWidgets import (
+    QCheckBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
 # --- XỬ LÝ PHIÊN BẢN PYQT ---
 try:
@@ -29,75 +43,87 @@ class LayerSelectionDialog(QDialog):
     def __init__(self, vector_layers, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Cập nhật Thuộc Tính Quy Hoạch")
-        self.resize(500, 650)
-        
-        layout = QVBoxLayout(self)
+        self.resize(520, 700)
+        self.setMinimumWidth(480)
 
-        # Tạo vùng cuộn (Scroll Area) để chứa nhiều ô nhập liệu không bị tràn màn hình
+        layout = QVBoxLayout(self)
+        layout.setSpacing(10)
+
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
+        try:
+            scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        except AttributeError:
+            scroll.setFrameShape(QScrollArea.NoFrame)
         scroll_content = QWidget()
         scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setSpacing(12)
 
-        # 1. Khu vực nhập liệu (Đã bổ sung đầy đủ)
-        scroll_layout.addWidget(QLabel("Mã thông tin quy hoạch (maThongTinQH):"))
+        fields_box = QGroupBox("Thông tin thuộc tính")
+        form = QFormLayout(fields_box)
+        form.setSpacing(8)
+        form.setContentsMargins(12, 16, 12, 12)
+        form.setHorizontalSpacing(12)
+        form.setVerticalSpacing(10)
+
         self.input_ma_tt = QLineEdit(self)
-        scroll_layout.addWidget(self.input_ma_tt)
+        form.addRow("Mã thông tin QH (maThongTinQH):", self.input_ma_tt)
 
-        scroll_layout.addWidget(QLabel("Mã hồ sơ quy hoạch (maHoSoQH) - VD: 84QHC1000001:"))
         self.input_ma_hs = QLineEdit("84QHC1000001", self)
-        scroll_layout.addWidget(self.input_ma_hs)
+        form.addRow("Mã hồ sơ QH (maHoSoQH):", self.input_ma_hs)
 
-        scroll_layout.addWidget(QLabel("Mã đối tượng (maDoiTuong) - do người dùng nhập:"))
         self.input_ma_dt = QLineEdit(self)
-        scroll_layout.addWidget(self.input_ma_dt)
-        
-        scroll_layout.addWidget(QLabel("Tên đối tượng (tenDoiTuong) - Bỏ trống nếu nhập sau:"))
+        form.addRow("Mã đối tượng (maDoiTuong):", self.input_ma_dt)
+
         self.input_ten_dt = QLineEdit(self)
-        scroll_layout.addWidget(self.input_ten_dt)
-        
-        scroll_layout.addWidget(QLabel("Phân loại (phanLoai) - Bỏ trống nếu nhập sau:"))
+        form.addRow("Tên đối tượng (tenDoiTuong):", self.input_ten_dt)
+
         self.input_phan_loai = QLineEdit(self)
-        scroll_layout.addWidget(self.input_phan_loai)
-        
-        scroll_layout.addWidget(QLabel("Ghi chú (ghiChu) - Bỏ trống nếu nhập sau:"))
+        form.addRow("Phân loại (phanLoai):", self.input_phan_loai)
+
         self.input_ghi_chu = QLineEdit(self)
-        scroll_layout.addWidget(self.input_ghi_chu)
+        form.addRow("Ghi chú (ghiChu):", self.input_ghi_chu)
 
-        # Tùy chọn xử lý thuộc tính cũ
-        self.chk_delete_old_fields = QCheckBox("Xóa toàn bộ thuộc tính cũ của layer trước khi thêm thuộc tính mới", self)
+        self.chk_delete_old_fields = QCheckBox(
+            "Xóa toàn bộ thuộc tính cũ trước khi thêm thuộc tính mới", self
+        )
         self.chk_delete_old_fields.setChecked(False)
-        scroll_layout.addWidget(self.chk_delete_old_fields)
+        form.addRow(self.chk_delete_old_fields)
 
-        # 2. Khu vực danh sách Layer
-        scroll_layout.addWidget(QLabel("Chọn các layer cần thêm trường dữ liệu:"))
+        scroll_layout.addWidget(fields_box)
+
+        layers_box = QGroupBox("Layer áp dụng")
+        layers_layout = QVBoxLayout(layers_box)
+        layers_layout.setContentsMargins(12, 16, 12, 12)
+        layers_layout.setSpacing(8)
+
         self.list_widget = QListWidget(self)
+        self.list_widget.setMinimumHeight(200)
         self.layer_map = {}
-        
+
         for layer in vector_layers:
             item = QListWidgetItem(layer.name())
             item.setFlags(item.flags() | FLAG_CHECKABLE)
             item.setCheckState(CHK_CHECKED)
-            item.setData(USER_ROLE, layer.id()) 
+            item.setData(USER_ROLE, layer.id())
             self.list_widget.addItem(item)
             self.layer_map[layer.id()] = layer
-            
-        scroll_layout.addWidget(self.list_widget)
 
-        # 3. Các nút chức năng chọn nhanh
+        layers_layout.addWidget(self.list_widget)
+
         btn_layout = QHBoxLayout()
         btn_select_all = QPushButton("Chọn tất cả")
         btn_deselect_all = QPushButton("Bỏ chọn tất cả")
-        
         btn_select_all.clicked.connect(self.select_all)
         btn_deselect_all.clicked.connect(self.deselect_all)
-        
         btn_layout.addWidget(btn_select_all)
         btn_layout.addWidget(btn_deselect_all)
-        scroll_layout.addLayout(btn_layout)
+        layers_layout.addLayout(btn_layout)
+
+        scroll_layout.addWidget(layers_box)
 
         scroll.setWidget(scroll_content)
-        layout.addWidget(scroll)
+        layout.addWidget(scroll, 1)
 
         # 4. Nút OK / Cancel 
         self.button_box = QDialogButtonBox(BTN_OK | BTN_CANCEL)
